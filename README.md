@@ -19,9 +19,10 @@ imports.
 
 ## A quick example
 
-Settings are declared as members of a `Settings` subclass; each member is
-assigned an attribute that selects its backend. All operations are
-class-level:
+Settings are declared as members of a `Settings` subclass whose
+`options=` names the class's sources; a plain member reads those
+sources, and a member assigned a backend's attribute, like `retries`,
+reads its own storage. All operations are class-level:
 
 ```python
 from datetime import timedelta

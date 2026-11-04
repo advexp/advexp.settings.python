@@ -69,7 +69,7 @@ enables the plugin; no registration calls are needed.
 - [advexp-settings](https://docs.advexp.net/settings/) and
   [advexp-configuration](https://docs.advexp.net/configuration/) — the
   packages' overview pages on the documentation site.
-- [samples/](samples/) — runnable tours of both packages' APIs.
+- [samples](samples) — runnable tours of both packages' APIs.
 
 ## Repository layout
 

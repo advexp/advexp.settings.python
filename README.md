@@ -69,12 +69,12 @@ enables the plugin; no registration calls are needed.
 
 ## Documentation
 
-- [advexp-settings](packages/advexp-settings/README.md) and
-  [advexp-configuration](packages/advexp-configuration/README.md) — the
-  packages' landing pages.
 - <https://docs.advexp.net> — the full documentation: the guides, the
   value types, validation, dynamic settings, and the API reference
   generated from the docstrings.
+- [advexp-settings](https://docs.advexp.net/settings/) and
+  [advexp-configuration](https://docs.advexp.net/configuration/) — the
+  packages' overview pages on the documentation site.
 - [samples/](samples/) — runnable tours of both packages' APIs.
 
 ## Repository layout

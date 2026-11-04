@@ -24,11 +24,13 @@ class TOMLSettingsConfiguration(metaclass=ModuleDefaultMeta):
 
     A settings module can keep its file to itself — declare it at the
     module's top level, with ``for_this_module`` from the package
-    root::
+    root:
 
+    ```python
         TOMLSettingsConfiguration.file_path = for_this_module(
             Path("app-settings.toml")
         )
+    ```
 
     The declaration holds for the classes of the module it is written
     in and wins over this attribute; every other module keeps reading

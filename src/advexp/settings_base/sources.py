@@ -7,12 +7,14 @@ A layered class resolves a member by walking its chain of sources in order.
 The first link that provides a value wins, the declared default is the
 implicit last layer, and a miss moves on down the chain. The chain is
 declared once per class, through the ``options=`` keyword of the ``class``
-statement::
+statement:
 
-    class AppConfig(Configuration, options=Sources(
-        env_source(name_prefix="APP_"),
-        json_source(file="app.json"),
-    )):
+```python
+class AppConfig(Configuration, options=Sources(
+    env_source(name_prefix="APP_"),
+    json_source(file="app.json"),
+)):
+```
 
 A single link that is spelled alone is normalized into the one-link chain
 of the same class. For example, ``options=json_source(file="app.json")``

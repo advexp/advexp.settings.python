@@ -6,20 +6,22 @@
 Importing this package enables the backend; no explicit registration call
 is needed. The package contains everything that the backend needs: the
 ``dotenv_source`` binding, the ``dotenv_setting`` factory, and the naming
-constants of the family::
+constants of the family:
 
-    import advexp.settings.plugins.environment.dotenv as env
-    import advexp.settings as adv_settings
+```python
+import advexp.settings.plugins.environment.dotenv as env
+import advexp.settings as adv_settings
 
-    class AppSettings(adv_settings.Settings, options=env.dotenv_source("app.env")):
-        # SESSION_TTL in app.env
-        session_ttl: timedelta = timedelta(minutes=30)
+class AppSettings(adv_settings.Settings, options=env.dotenv_source("app.env")):
+    # SESSION_TTL in app.env
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    # SESSION_TTL=1:30:00 in the .env file
-    AppSettings.load_settings()
+# SESSION_TTL=1:30:00 in the .env file
+AppSettings.load_settings()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppSettings.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppSettings.session_ttl))
+```
 
 The file of a class is the one that its ``dotenv_source(...)`` binding
 names. Otherwise, the module default of

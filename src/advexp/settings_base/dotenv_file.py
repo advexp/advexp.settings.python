@@ -73,14 +73,16 @@ def dotenv_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
     shared dictionary of the environment family, so a class that uses an
     ``env_source(...)`` binding applies its naming to the dotenv members too.
     Pass the result of the builder next to the source builder in one
-    ``options=`` sequence::
+    ``options=`` sequence:
 
+    ```python
         class AppSettings(Settings, options=(
             env_source(name_prefix="APP_", name_case=NameCase.UPPER),
             dotenv_file("app.env"),
         )):
             mode: str = "production"  # a plain member: one source — env
             flag: bool = dotenv_setting(default=False)  # APP_FLAG
+    ```
 
     A class that is served by the dotenv storage alone names its file on the
     source builder, ``dotenv_source(file=...)``. That builder binds the class

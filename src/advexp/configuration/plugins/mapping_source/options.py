@@ -40,8 +40,9 @@ def mapping_source(mapping: Optional[Mapping[str, Any]] = None) -> SourceBinding
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement. You can pass it alone (for a class whose members all come from
     the dictionary) or inside ``Sources(...)`` as the bottom layer of the
-    chain, which is the last place a load looks before the declared defaults::
+    chain, which is the last place a load looks before the declared defaults:
 
+    ```python
         BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
 
         class AppConfig(Configuration, options=Sources(
@@ -50,6 +51,7 @@ def mapping_source(mapping: Optional[Mapping[str, Any]] = None) -> SourceBinding
             mapping_source(BASE_DEFAULTS),
         )):
             token: str
+    ```
 
     The dictionary that is passed in is copied at the call, so a later change
     to the caller's object never reaches the chain. A value that a load finds

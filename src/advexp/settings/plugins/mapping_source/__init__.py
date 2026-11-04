@@ -4,30 +4,35 @@
 """Mapping storage: the dictionary of the class, which can be loaded and saved.
 
 Importing this package enables the storage; no explicit registration
-call is needed::
+call is needed:
 
-    import advexp.settings as adv_settings
-    from advexp.settings.plugins.mapping_source import mapping_source
+```python
+import advexp.settings as adv_settings
+from advexp.settings.plugins.mapping_source import mapping_source
 
-    BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
+BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
 
-    class AppSettings(
-        adv_settings.Settings,
-        options=mapping_source(BASE_DEFAULTS),
-    ):
-        token: str
+class AppSettings(
+    adv_settings.Settings,
+    options=mapping_source(BASE_DEFAULTS),
+):
+    token: str
+```
 
 ``mapping_source(...)`` returns the result of the builder, which is meant
 for the ``options=`` keyword of the ``class`` statement. No member factory
 exists, because the dictionary uses member names, which plain declarations
 already are. The dictionary is the storage of the class: a load reads it, a
 save writes the member keys into it, and the resolver replaces it
-completely between the passes::
+completely between the passes:
 
-    from advexp.settings.plugins.mapping_source import mapping_source_for
+```python
+from advexp.settings.plugins.mapping_source import mapping_source_for
 
-    mapping_source_for(AppSettings).set({"token": "runtime-token"})
-    AppSettings.load_settings()
+mapping_source_for(AppSettings).set({"token": "runtime-token"})
+AppSettings.load_settings()
+```
+
 """
 
 from advexp.settings.plugins.mapping_source.link import MappingStorageLink

@@ -4,19 +4,21 @@
 """TOML file configuration source.
 
 Importing this package enables the source; no explicit registration call
-is needed::
+is needed:
 
-    import advexp.configuration as adv_config
-    import advexp.configuration.plugins.toml_settings as ts
+```python
+import advexp.configuration as adv_config
+import advexp.configuration.plugins.toml_settings as ts
 
-    class AppConfig(adv_config.Configuration, options=ts.toml_source("app.toml")):
-        # reads the dotted addresses of app.toml
-        session_ttl: timedelta = ts.toml_setting(default="0:30:00")
+class AppConfig(adv_config.Configuration, options=ts.toml_source("app.toml")):
+    # reads the dotted addresses of app.toml
+    session_ttl: timedelta = ts.toml_setting(default="0:30:00")
 
-    AppConfig.load_configuration()
+AppConfig.load_configuration()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppConfig.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppConfig.session_ttl))
+```
 
 Declare members through the ``toml_setting`` factory so that the
 assignments pass type checking. Assigning a ``TOMLSetting`` instance does

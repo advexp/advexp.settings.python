@@ -6,22 +6,24 @@
 Importing this package enables the backend; no explicit registration call
 is needed. The package contains everything that the backend needs: the
 ``environment_variable_setting`` factory and the ``env_source`` binding of
-the backend::
+the backend:
 
-    import advexp.settings.plugins.environment.variables as env
-    import advexp.settings as adv_settings
+```python
+import advexp.settings.plugins.environment.variables as env
+import advexp.settings as adv_settings
 
-    class AppSettings(adv_settings.Settings, options=env.env_source(
-        name_prefix="APP_", name_case=env.NameCase.UPPER,
-    )):
-        # APP_SESSION_TTL
-        session_ttl: timedelta = timedelta(minutes=30)
+class AppSettings(adv_settings.Settings, options=env.env_source(
+    name_prefix="APP_", name_case=env.NameCase.UPPER,
+)):
+    # APP_SESSION_TTL
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    # APP_SESSION_TTL=1:30:00 in the environment
-    AppSettings.load_settings()
+# APP_SESSION_TTL=1:30:00 in the environment
+AppSettings.load_settings()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppSettings.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppSettings.session_ttl))
+```
 
 Declare members through the ``environment_variable_setting`` factory so
 that the assignments pass type checking. Assigning an

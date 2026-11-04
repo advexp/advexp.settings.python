@@ -4,11 +4,13 @@
 """Path parameters that are read from environment variables.
 
 A source link that carries a file may spell its file as a template with
-named slots, and each slot reads its value from one environment variable::
+named slots, and each slot reads its value from one environment variable:
 
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+```python
+app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
 
-    json_source(file="settings-{APP_ENV}.json", parameters=app_env)
+json_source(file="settings-{APP_ENV}.json", parameters=app_env)
+```
 
 The name of the slot in the template is the name of the variable. ``slot=``
 renames it if the template spells another name.
@@ -116,14 +118,16 @@ def env_parameter(
     """Declare one path parameter that is read from an environment variable.
 
     Pass the result to the ``parameters=`` of a builder of a source that carries
-    a file, either alone or in a tuple::
+    a file, either alone or in a tuple:
 
+    ```python
         app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
 
         class AppConfig(Configuration, options=Sources(
             json_source(file="app.json"),
             json_source(file="settings-{APP_ENV}.json", parameters=app_env),
         )):
+    ```
 
     ``variable`` names the environment variable, and the template spells the
     slot by that name: ``settings-{APP_ENV}.json``.

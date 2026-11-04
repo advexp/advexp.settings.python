@@ -7,27 +7,29 @@ Dynamic settings are name-value pairs that have no declared class member:
 their names appear at runtime (window layouts, dashboards added by users,
 plugin configurations). Importing this package enables the backend. The
 collection is reached through the plugin that is bound to the settings
-class::
+class:
 
-    from datetime import timedelta
-    from pathlib import Path
+```python
+from datetime import timedelta
+from pathlib import Path
 
-    import advexp.settings as adv_settings
-    import advexp.settings.plugins.json_dynamic_settings as jds
+import advexp.settings as adv_settings
+import advexp.settings.plugins.json_dynamic_settings as jds
 
-    jds.JSONSettingsConfiguration.file_path = Path("app-settings.json")
-
-
-    class LocalSettings(adv_settings.Settings):
-        # a declared (static) setting
-        session_ttl: timedelta = timedelta(minutes=30)
+jds.JSONSettingsConfiguration.file_path = Path("app-settings.json")
 
 
-    dynamic_settings_plugin = LocalSettings.get_plugin(jds.JSONDynamicSettingsPlugin)
-    dynamic_settings_plugin.load_settings()  # this class's dynamic entries from the same file
-    dark_mode = dynamic_settings_plugin.get_setting("dark_mode", default=False)
-    dynamic_settings_plugin.set_setting("dark_mode", True)
-    dynamic_settings_plugin.save_settings()
+class LocalSettings(adv_settings.Settings):
+    # a declared (static) setting
+    session_ttl: timedelta = timedelta(minutes=30)
+
+
+dynamic_settings_plugin = LocalSettings.get_plugin(jds.JSONDynamicSettingsPlugin)
+dynamic_settings_plugin.load_settings()  # this class's dynamic entries from the same file
+dark_mode = dynamic_settings_plugin.get_setting("dark_mode", default=False)
+dynamic_settings_plugin.set_setting("dark_mode", True)
+dynamic_settings_plugin.save_settings()
+```
 
 This module contains the whole scenario on its own. The dynamic collection
 builds on the JSON file backend, so importing this package has already
@@ -40,12 +42,14 @@ settings.
 Static and dynamic settings share one file. The static members are stored
 under their full names at the document root. The dynamic entries are stored
 in their own section: the ``"dynamic"`` object, with one nested object per
-settings class::
+settings class:
 
-    {
-      "app.LocalSettings.session_ttl": "0:30:00",
-      "dynamic": {"app.LocalSettings": {"dark_mode": true}}
-    }
+```json
+{
+  "app.LocalSettings.session_ttl": "0:30:00",
+  "dynamic": {"app.LocalSettings": {"dark_mode": true}}
+}
+```
 
 The section is a layout choice of this backend. It is controlled by two
 parameters that mirror ``name=`` and ``path=`` of ``JSONSetting``:
@@ -61,27 +65,31 @@ Both parameters follow the MRO of the settings class, each independently.
 
 The shared file is the default, not a rule:
 ``JSONDynamicSettingsConfiguration.file_path`` gives the dynamic entries a
-file of their own, separate from the static one::
+file of their own, separate from the static one:
 
-    import advexp.settings.plugins.json_dynamic_settings as jds
+```python
+import advexp.settings.plugins.json_dynamic_settings as jds
 
-    jds.JSONDynamicSettingsConfiguration.file_path = Path("dynamic-settings.json")
+jds.JSONDynamicSettingsConfiguration.file_path = Path("dynamic-settings.json")
+```
 
 The dynamic side of a single class can be moved separately with the
 ``dynamic_file=`` parameter of the ``json_source(...)`` binding of the
-class. It wins over the module default::
+class. It wins over the module default:
 
-    import advexp.settings.plugins.json_dynamic_settings as jds
+```python
+import advexp.settings.plugins.json_dynamic_settings as jds
 
 
-    class LocalSettings(
-        Settings,
-        options=jds.json_source(
-            file="window-settings.json",
-            dynamic_file="window-dynamic-settings.json",
-        ),
-    ):
-        session_ttl: timedelta = timedelta(minutes=30)
+class LocalSettings(
+    Settings,
+    options=jds.json_source(
+        file="window-settings.json",
+        dynamic_file="window-dynamic-settings.json",
+    ),
+):
+    session_ttl: timedelta = timedelta(minutes=30)
+```
 
 The ``file_path`` property of the plugin instance is the imperative
 spelling of the same binding.

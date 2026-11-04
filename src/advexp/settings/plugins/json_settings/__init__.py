@@ -4,29 +4,33 @@
 """JSON file settings backend.
 
 Importing this package enables the backend; no explicit registration call
-is needed::
+is needed:
 
-    from datetime import timedelta
-    from pathlib import Path
+```python
+from datetime import timedelta
+from pathlib import Path
 
-    import advexp.settings as adv_settings
-    import advexp.settings.plugins.json_settings as js
+import advexp.settings as adv_settings
+import advexp.settings.plugins.json_settings as js
 
-    js.JSONSettingsConfiguration.file_path = Path("app-settings.json")
+js.JSONSettingsConfiguration.file_path = Path("app-settings.json")
 
-    class AppSettings(adv_settings.Settings):
-        session_ttl: timedelta = timedelta(minutes=30)
+class AppSettings(adv_settings.Settings):
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    AppSettings.load_settings()
+AppSettings.load_settings()
+```
 
 Classes are bound to their own files through the source builder of the
-backend::
+backend:
 
-    class WindowSettings(
-        adv_settings.Settings,
-        options=js.json_source(file="window-settings.json"),
-    ):
-        width: int = 800
+```python
+class WindowSettings(
+    adv_settings.Settings,
+    options=js.json_source(file="window-settings.json"),
+):
+    width: int = 800
+```
 
 Declare members through plain annotations (the binding of the class reads
 them) or through the ``json_setting`` factory, so that the assignments pass

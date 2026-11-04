@@ -35,11 +35,13 @@ class JSONDynamicSettingsConfiguration(metaclass=ModuleDefaultMeta):
 
     A settings module can declare the dynamic entries' own file for
     itself alone — at the module's top level, with ``for_this_module``
-    from the package root::
+    from the package root:
 
+    ```python
         JSONDynamicSettingsConfiguration.file_path = for_this_module(
             Path("dynamic-settings.json")
         )
+    ```
 
     The declaration holds for the classes of the module it is written
     in and wins over this attribute; modules without one keep reading

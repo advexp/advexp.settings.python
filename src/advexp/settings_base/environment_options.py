@@ -135,14 +135,16 @@ def environment_options(
 ) -> Dict[str, Dict[str, Any]]:
     """Build the options of the family: the own entry of the declaring class.
 
-    Pass them to the ``class`` statement::
+    Pass them to the ``class`` statement:
 
+    ```python
         class AppSettings(Settings, options=environment_options(
             name_prefix="APP_", name_case=NameCase.UPPER,
         )):
 
             # APP_SESSION_TTL
             session_ttl: timedelta = environment_variable_setting(default="0:30:00")
+    ```
 
     The ``options=`` keyword of the ``class`` statement is the readable spelling
     of the ``class_metadata`` declaration of the class. The result of the helper

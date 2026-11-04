@@ -4,29 +4,33 @@
 """TOML file settings backend.
 
 Importing this package enables the backend; no explicit registration call
-is needed::
+is needed:
 
-    from datetime import timedelta
-    from pathlib import Path
+```python
+from datetime import timedelta
+from pathlib import Path
 
-    import advexp.settings as adv_settings
-    import advexp.settings.plugins.toml_settings as ts
+import advexp.settings as adv_settings
+import advexp.settings.plugins.toml_settings as ts
 
-    ts.TOMLSettingsConfiguration.file_path = Path("app-settings.toml")
+ts.TOMLSettingsConfiguration.file_path = Path("app-settings.toml")
 
-    class AppSettings(adv_settings.Settings):
-        session_ttl: timedelta = timedelta(minutes=30)
+class AppSettings(adv_settings.Settings):
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    AppSettings.load_settings()
+AppSettings.load_settings()
+```
 
 Classes are bound to their own files through the source builder of the
-backend::
+backend:
 
-    class WindowSettings(
-        adv_settings.Settings,
-        options=ts.toml_source(file="window-settings.toml"),
-    ):
-        width: int = 800
+```python
+class WindowSettings(
+    adv_settings.Settings,
+    options=ts.toml_source(file="window-settings.toml"),
+):
+    width: int = 800
+```
 
 Declare members through plain annotations (the binding of the class reads
 them) or through the ``toml_setting`` factory, so that the assignments pass

@@ -52,12 +52,14 @@ def toml_source(
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that reads nothing else) or inside
-    ``Sources(...)`` as one link of the chain::
+    ``Sources(...)`` as one link of the chain:
 
+    ```python
         class AppConfig(Configuration, options=Sources(
             env_source(name_prefix="APP_"),
             toml_source(file="app.toml"),
         )):
+    ```
 
     ``file`` names the file that the link reads. It may contain template slots
     that are resolved through environment variables:

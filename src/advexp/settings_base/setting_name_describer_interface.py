@@ -25,10 +25,12 @@ class ISettingNameDescriber(abc.ABC):
     A backend of that kind spells its own address instead. The word for the
     member is the own term of the distribution (here, ``member``). The
     designation of the source of a file backend is added next to the address,
-    and it names the file that the address alone cannot name::
+    and it names the file that the address alone cannot name:
 
+    ```python
         member 'host' (environment variable 'DEMO_APP_HOST') of 'AppConfig'
         member 'port' (key 'port' in the TOML file /etc/app.toml) of ...
+    ```
 
     :class:`~advexp.settings_base.settings_base_serializer.SettingsBaseSerializer`
     implements this interface with a ``None`` default, which means the

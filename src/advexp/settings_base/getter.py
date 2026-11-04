@@ -7,12 +7,14 @@ A setting getter is an *unexecuted* lambda: the member name is read out of
 it, and anything other than a plain member access is ignored. A lambda
 carries its compiled bytecode, and the strict shape ``lambda s: s.member``
 compiles to an exact instruction sequence on every supported CPython (3.9
-lacks the leading ``RESUME``)::
+lacks the leading ``RESUME``):
 
-    RESUME
-    LOAD_FAST   s
-    LOAD_ATTR   member
-    RETURN_VALUE
+```text
+RESUME
+LOAD_FAST   s
+LOAD_ATTR   member
+RETURN_VALUE
+```
 
 Anything else is rejected with a ``TypeError`` that names the accepted
 shape. Examples are calls, arithmetic, nested attributes, closures, and

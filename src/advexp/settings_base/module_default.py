@@ -11,9 +11,11 @@ other, and the order of the imports decides which value survives.
 A module that needs a default of its own declares one, instead of writing the
 slot. Write the call as the value side of the assignment of the parameter, at
 the top level of the module that the value addresses (``holder`` below is
-the configuration holder of the backend)::
+the configuration holder of the backend):
 
-    holder.file_path = for_this_module(Path("app-settings.json"))
+```python
+holder.file_path = for_this_module(Path("app-settings.json"))
+```
 
 The metaclass of the holder intercepts the assignment and stores the value
 under the name of the declaring module. Modules with different declarations
@@ -147,9 +149,11 @@ def for_this_module(value: Any) -> Any:
     """Declare the value of a parameter for the module in which this call is
     written.
 
-    Write the call in the assignment itself, at the top level of the module::
+    Write the call in the assignment itself, at the top level of the module:
 
+    ```python
         holder.file_path = for_this_module(Path("app-settings.json"))
+    ```
 
     The function names the calling module at the call, and the metaclass of the
     holder consumes the marker at the moment when the assignment executes, during

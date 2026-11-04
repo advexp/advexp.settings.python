@@ -63,10 +63,12 @@ def json_source(
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that keeps everything in one JSON file)
-    or next to the builders of other families in one ``options=`` sequence::
+    or next to the builders of other families in one ``options=`` sequence:
 
+    ```python
         class AppSettings(Settings, options=js.json_source(file="app-settings.json")):
             token: str
+    ```
 
     ``file`` names the file of the declared members of the class. A builder
     without ``file`` uses the module default of the backend. The name may

@@ -6,22 +6,24 @@
 Importing this package enables the source; no explicit registration call
 is needed. The module contains everything that the source needs: the
 naming rules of the family arrive through the environment link of the
-chain, and the ``dotenv_source`` builder names the file::
+chain, and the ``dotenv_source`` builder names the file:
 
-    import advexp.configuration.plugins.environment.dotenv as env
-    import advexp.configuration as adv_config
+```python
+import advexp.configuration.plugins.environment.dotenv as env
+import advexp.configuration as adv_config
 
-    class AppConfig(adv_config.Configuration, options=env.dotenv_source(
-        file="app.env", name_prefix="APP_", name_case=env.NameCase.UPPER,
-    )):
-        # APP_SESSION_TTL in app.env
-        session_ttl: timedelta = env.dotenv_setting(default="0:30:00")
+class AppConfig(adv_config.Configuration, options=env.dotenv_source(
+    file="app.env", name_prefix="APP_", name_case=env.NameCase.UPPER,
+)):
+    # APP_SESSION_TTL in app.env
+    session_ttl: timedelta = env.dotenv_setting(default="0:30:00")
 
-    # APP_SESSION_TTL=1:30:00 in the file
-    AppConfig.load_configuration()
+# APP_SESSION_TTL=1:30:00 in the file
+AppConfig.load_configuration()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppConfig.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppConfig.session_ttl))
+```
 
 Names are built by the shared rules of the environment family. The prefix
 and the case that are declared on the environment link of the chain apply,

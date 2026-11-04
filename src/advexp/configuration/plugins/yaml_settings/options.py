@@ -55,12 +55,14 @@ def yaml_source(
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that reads nothing else) or inside
-    ``Sources(...)`` as one link of the chain::
+    ``Sources(...)`` as one link of the chain:
 
+    ```python
         class AppConfig(Configuration, options=Sources(
             env_source(name_prefix="APP_"),
             yaml_source(file="app.yaml"),
         )):
+    ```
 
     ``file`` names the file that the link reads. The extension is not checked:
     any path works. The name may contain template slots that are resolved

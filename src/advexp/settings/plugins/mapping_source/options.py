@@ -37,10 +37,12 @@ def mapping_source(mapping: Optional[Mapping[str, Any]] = None) -> Mapping[str, 
     """Bind a settings class to its dictionary storage.
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
-    statement::
+    statement:
 
+    ```python
         class AppSettings(Settings, options=mapping_source(BASE_DEFAULTS)):
             token: str
+    ```
 
     ``mapping`` seeds the storage. The dictionary is copied at the call, so a
     later change to the object of the caller never reaches the storage, and

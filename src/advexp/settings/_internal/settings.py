@@ -5,15 +5,18 @@
 
 Subclass :class:`Settings` and declare members through plain annotations
 (the source binding of the class reads them) or through the factory of a
-backend. Then use the class-level API; the values are stored per class::
+backend. Then use the class-level API; the values are stored per class:
 
-    class LocalSettings(Settings, options=js.json_source("local.json")):
-        width: int = 800
-        airplane_mode: bool = setting(name="airplaneMode", default=False)
+```python
+class LocalSettings(Settings, options=js.json_source("local.json")):
+    width: int = 800
+    airplane_mode: bool = setting(name="airplaneMode", default=False)
 
-    LocalSettings.load_settings()
-    LocalSettings.airplane_mode = True
-    LocalSettings.save_settings()
+LocalSettings.load_settings()
+LocalSettings.airplane_mode = True
+LocalSettings.save_settings()
+```
+
 """
 
 from __future__ import annotations
@@ -200,9 +203,12 @@ class Settings(metaclass=PlainSettingsMeta):
         :class:`~advexp.settings_base.setting_validation_error.SettingValidationError`,
         which carries the per-member report in its ``problems`` attribute. A CLI or
         a test can read this report as data. Nothing changes: values and storages
-        stay exactly as they were. If everything passes, nothing is raised::
+        stay exactly as they were. If everything passes, nothing is raised:
 
-            LocalSettings.validate_settings()
+        ```python
+                LocalSettings.validate_settings()
+        ```
+
         """
         pipeline.validate_settings(cls.__settings_context__)
 
@@ -294,9 +300,12 @@ class Settings(metaclass=PlainSettingsMeta):
         Values are deep-copied, so changing the snapshot never affects the class
         (and vice versa). Members that were never assigned or loaded report their
         effective default. Secure settings are included as they are, so treat the
-        snapshot accordingly::
+        snapshot accordingly:
 
-            snapshot = LocalSettings.to_dict()
+        ```python
+                snapshot = LocalSettings.to_dict()
+        ```
+
         """
         with cls.__settings_context__.lock:
             return {name: copy.deepcopy(getattr(cls, name)) for name in cls.__settings_members__}
@@ -323,10 +332,13 @@ class Settings(metaclass=PlainSettingsMeta):
         skipped, with a debug record, and the declared ones are applied.
 
         Storages are not written. Call :meth:`save_settings` to persist the
-        values::
+        values:
 
-            LocalSettings.update_from_dict({'airplane_mode': True})
-            LocalSettings.save_settings()
+        ```python
+                LocalSettings.update_from_dict({'airplane_mode': True})
+                LocalSettings.save_settings()
+        ```
+
         """
         cls._apply_snapshot(data, ignore_unknown=ignore_unknown)
 
@@ -341,9 +353,12 @@ class Settings(metaclass=PlainSettingsMeta):
         values: reading or writing them never affects the class, and vice versa.
         Members that were never assigned or loaded report their effective default.
         Secure settings are included as they are, so treat the snapshot
-        accordingly. Apply the snapshot back with :meth:`update_from_object`::
+        accordingly. Apply the snapshot back with :meth:`update_from_object`:
 
-            snapshot = LocalSettings.to_object()
+        ```python
+                snapshot = LocalSettings.to_object()
+        ```
+
         """
         with cls.__settings_context__.lock:
             # object.__new__ is the detached-instance construction (the class
@@ -376,10 +391,13 @@ class Settings(metaclass=PlainSettingsMeta):
         class never declared. A failed conversion or check applies nothing.
 
         Storages are not written. Call :meth:`save_settings` to persist the
-        values::
+        values:
 
-            LocalSettings.update_from_object(snapshot)
-            LocalSettings.save_settings()
+        ```python
+                LocalSettings.update_from_object(snapshot)
+                LocalSettings.save_settings()
+        ```
+
         """
         own = instance_values(obj)
         if own is not None:

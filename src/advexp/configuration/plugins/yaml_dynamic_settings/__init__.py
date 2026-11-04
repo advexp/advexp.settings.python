@@ -9,35 +9,37 @@ reading half. A class declares the group key of the writing class next to
 its YAML source binding, and the collection (reached through the plugin)
 reads the entries that this group holds, as a snapshot that an explicit
 ``load_configuration()`` call refreshes. Importing this package enables the
-reader::
+reader:
 
-    from datetime import timedelta
-    from pathlib import Path
+```python
+from datetime import timedelta
+from pathlib import Path
 
-    import advexp.configuration as adv_config
-    import advexp.configuration.plugins.yaml_dynamic_settings as yds
-    import advexp.configuration.plugins.yaml_settings as ys
+import advexp.configuration as adv_config
+import advexp.configuration.plugins.yaml_dynamic_settings as yds
+import advexp.configuration.plugins.yaml_settings as ys
 
-    # the writing side (the advexp.settings package) stores its dynamic
-    # entries of the class "app.LocalSettings" in app-settings.yaml
-
-
-    class DashboardConfig(
-        adv_config.Configuration,
-        options=ys.yaml_source(
-            file="app-settings.yaml",
-            dynamic_of="app.LocalSettings",
-        ),
-    ):
-        # a declared member, read from the same file as always
-        session_ttl: timedelta = ys.yaml_setting(default="0:30:00")
+# the writing side (the advexp.settings package) stores its dynamic
+# entries of the class "app.LocalSettings" in app-settings.yaml
 
 
-    dashboard = DashboardConfig.get_plugin(yds.YAMLDynamicSettingsPlugin)
-    dashboard.load_configuration()  # this group's dynamic entries from the file
-    dark_mode = dashboard.get_setting("dark_mode", default=False)
-    sorted(dashboard)  # the entry names, the class metadata order first
-    dashboard.to_dict()  # the snapshot
+class DashboardConfig(
+    adv_config.Configuration,
+    options=ys.yaml_source(
+        file="app-settings.yaml",
+        dynamic_of="app.LocalSettings",
+    ),
+):
+    # a declared member, read from the same file as always
+    session_ttl: timedelta = ys.yaml_setting(default="0:30:00")
+
+
+dashboard = DashboardConfig.get_plugin(yds.YAMLDynamicSettingsPlugin)
+dashboard.load_configuration()  # this group's dynamic entries from the file
+dark_mode = dashboard.get_setting("dark_mode", default=False)
+sorted(dashboard)  # the entry names, the class metadata order first
+dashboard.to_dict()  # the snapshot
+```
 
 The collection is read-only: every write (saving, deleting, setting a
 value, or changing the setting metadata) is refused with a ``TypeError``,
@@ -51,12 +53,14 @@ of the module ``app`` with the default name pattern (the key is the class
 part of the writer's pattern after expansion, whatever pattern the writer
 declared). The entries are stored in the section that the writer laid out,
 which by default is the ``"dynamic"`` mapping, with one nested mapping per
-writing class::
+writing class:
 
-    app.LocalSettings.session_ttl: 0:30:00
-    dynamic:
-      app.LocalSettings:
-        dark_mode: true
+```yaml
+app.LocalSettings.session_ttl: 0:30:00
+dynamic:
+  app.LocalSettings:
+    dark_mode: true
+```
 
 A writer that disabled the section (``dynamic_settings_section_name = None``
 on its plugin) is read in the same way. The section parameters that the

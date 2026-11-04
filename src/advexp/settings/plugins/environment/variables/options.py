@@ -40,12 +40,14 @@ def env_source(
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that reads nothing else) or next to
-    the builders of other families in one ``options=`` sequence::
+    the builders of other families in one ``options=`` sequence:
 
+    ```python
         class AppSettings(Settings, options=env.env_source(
             name_prefix="APP_", name_case=env.NameCase.UPPER,
         )):
             mode: str
+    ```
 
     The naming parameters ``name_prefix``, ``name_case``, and
     ``nested_delimiter`` declare the naming dictionary of the family for this

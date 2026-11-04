@@ -27,10 +27,12 @@ def mapping_source_for(cls: type) -> MappingStorageLink:
     ``get``.
 
     Bind the storage with ``mapping_source(...)`` in the ``class`` statement,
-    and reach it from the class::
+    and reach it from the class:
 
+    ```python
         mapping_source_for(AppSettings).set({"token": "dev-token"})
         AppSettings.load_settings()
+    ```
 
     The resolver reads the nearest binding. A subclass without its own
     ``mapping_source`` shares the storage of its base class: one dictionary, one

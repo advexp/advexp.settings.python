@@ -8,17 +8,19 @@ Subclass :class:`Configuration`, declare the class's source chain in the
 either plainly (a bare annotation for a required member, an annotated
 assignment for a member with a default) or through a family factory. Then
 load the class through its chain. The values are stored per class and are
-never written back to the sources::
+never written back to the sources:
 
-    class AppConfig(
-        Configuration,
-        options=Sources(env_source(...), json_source(file="app.json")),
-    ):
-        token: str
-        session_ttl: timedelta = timedelta(minutes=30)
+```python
+class AppConfig(
+    Configuration,
+    options=Sources(env_source(...), json_source(file="app.json")),
+):
+    token: str
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    AppConfig.load_configuration()
-    print(repr(AppConfig.session_ttl))
+AppConfig.load_configuration()
+print(repr(AppConfig.session_ttl))
+```
 
 Members are declared in exactly the same way as in :mod:`advexp.settings`:
 the same attribute class conventions, the same constraints, the same
@@ -252,9 +254,12 @@ class Configuration(metaclass=ConfigurationMeta):
         and vice versa. A member that was never loaded reports its effective
         default. A required member (declared ``REQUIRED``) raises an error instead,
         because it has nothing to report. Members that hold secrets are included
-        as they are, so treat the snapshot accordingly::
+        as they are, so treat the snapshot accordingly:
 
-            snapshot = AppConfig.to_dict()
+        ```python
+                snapshot = AppConfig.to_dict()
+        ```
+
         """
         with cls.__settings_context__.lock:
             return MappingProxyType(
@@ -275,9 +280,12 @@ class Configuration(metaclass=ConfigurationMeta):
         never loaded reports its effective default. A required member (declared
         ``REQUIRED``) raises an error instead, because it has nothing to report.
         Members that hold secrets are included as they are, so treat the snapshot
-        accordingly::
+        accordingly:
 
-            snapshot = AppConfig.to_object()
+        ```python
+                snapshot = AppConfig.to_object()
+        ```
+
         """
         with cls.__settings_context__.lock:
             # object.__new__ is the detached-instance construction (the class

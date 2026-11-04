@@ -150,10 +150,13 @@ class SettingsBaseSerializer(
         because dynamic entries call with ``attr=None``. This helper is the only way
         to turn ``attr`` into the typed view from which a backend reads its own
         parameters (``path=`` and similar ones). ``None`` covers the case in which
-        the view does not apply::
+        the view does not apply:
 
-            setting = self.attribute_of(attr, JSONSetting)
-            path = setting.path if setting is not None else None
+        ```python
+                setting = self.attribute_of(attr, JSONSetting)
+                path = setting.path if setting is not None else None
+        ```
+
         """
         return attr if isinstance(attr, attribute_class) else None
 

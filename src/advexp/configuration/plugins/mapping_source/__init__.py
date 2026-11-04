@@ -4,18 +4,20 @@
 """Mapping source: a dictionary read as a chain link.
 
 Importing this package enables the source; no explicit registration
-call is needed::
+call is needed:
 
-    import advexp.configuration as adv_config
-    from advexp.configuration.plugins.mapping_source import mapping_source
+```python
+import advexp.configuration as adv_config
+from advexp.configuration.plugins.mapping_source import mapping_source
 
-    BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
+BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
 
-    class AppConfig(adv_config.Configuration, options=Sources(
-        env_source(name_prefix="APP_"),
-        mapping_source(BASE_DEFAULTS),
-    )):
-        token: str
+class AppConfig(adv_config.Configuration, options=Sources(
+    env_source(name_prefix="APP_"),
+    mapping_source(BASE_DEFAULTS),
+)):
+    token: str
+```
 
 ``mapping_source(...)`` returns the result of the builder, which is meant
 for the ``options=`` keyword of the ``class`` statement. Assigning the
@@ -26,21 +28,23 @@ it is never written back.
 
 If the builder is called without a dictionary, it declares the live form:
 the chain holds an empty mapping layer, and the application fills its
-dictionary at runtime through the resolver::
+dictionary at runtime through the resolver:
 
-    from advexp.configuration.plugins.mapping_source import (
-        mapping_source,
-        mapping_source_for,
-    )
+```python
+from advexp.configuration.plugins.mapping_source import (
+    mapping_source,
+    mapping_source_for,
+)
 
-    class AppConfig(adv_config.Configuration, options=Sources(
-        env_source(name_prefix="APP_"),
-        mapping_source(),
-    )):
-        token: str
+class AppConfig(adv_config.Configuration, options=Sources(
+    env_source(name_prefix="APP_"),
+    mapping_source(),
+)):
+    token: str
 
-    mapping_source_for(AppConfig).set({"token": "dev-token"})
-    AppConfig.load_configuration()
+mapping_source_for(AppConfig).set({"token": "dev-token"})
+AppConfig.load_configuration()
+```
 
 The resolver is the only handle of the live form. The class declares the
 link, and ``mapping_source_for(cls)`` returns the one link of its chain.

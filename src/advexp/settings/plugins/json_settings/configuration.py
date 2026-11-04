@@ -24,11 +24,13 @@ class JSONSettingsConfiguration(metaclass=ModuleDefaultMeta):
 
     A settings module can keep its file to itself — declare it at the
     module's top level, with ``for_this_module`` from the package
-    root::
+    root:
 
+    ```python
         JSONSettingsConfiguration.file_path = for_this_module(
             Path("app-settings.json")
         )
+    ```
 
     The declaration holds for the classes of the module it is written
     in and wins over this attribute; every other module keeps reading

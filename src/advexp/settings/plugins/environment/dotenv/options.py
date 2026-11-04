@@ -54,12 +54,14 @@ def dotenv_source(
 
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that reads nothing else) or next to
-    the builders of other families in one ``options=`` sequence::
+    the builders of other families in one ``options=`` sequence:
 
+    ```python
         class AppSettings(Settings, options=dotenv_source(
             file=".env", name_prefix="APP_", name_case=NameCase.UPPER,
         )):
             mode: str
+    ```
 
     ``file`` names the file that the backend reads and writes. A builder
     without ``file`` uses the module default of the backend. An absent file

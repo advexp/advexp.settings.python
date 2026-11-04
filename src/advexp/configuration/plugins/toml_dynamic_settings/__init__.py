@@ -12,12 +12,14 @@ reads the entries that this group holds, as a snapshot that an explicit
 reader. See :mod:`advexp.configuration.plugins.json_dynamic_settings` for
 the full usage example of the JSON counterpart. The TOML side is spelled in
 exactly the same way, with ``toml_source(dynamic_of=...)`` and the plugin of
-this package::
+this package:
 
-    import advexp.configuration.plugins.toml_dynamic_settings as tds
+```python
+import advexp.configuration.plugins.toml_dynamic_settings as tds
 
-    dashboard = AppConfig.get_plugin(tds.TOMLDynamicSettingsPlugin)
-    dashboard.load_configuration()  # the writer's group from the TOML file
+dashboard = AppConfig.get_plugin(tds.TOMLDynamicSettingsPlugin)
+dashboard.load_configuration()  # the writer's group from the TOML file
+```
 
 The collection is read-only: every write (saving, deleting, setting a
 value, or changing the setting metadata) is refused with a ``TypeError``,
@@ -27,10 +29,12 @@ reads what that plugin stored.
 
 The entries are stored in the section that the writer laid out, which by
 default is the ``"dynamic"`` table. The part of the writing class is nested
-by its dots, and the name of an entry is a plain literal key::
+by its dots, and the name of an entry is a plain literal key:
 
-    [dynamic."app.LocalSettings"]
-    dark_mode = true
+```toml
+[dynamic."app.LocalSettings"]
+dark_mode = true
+```
 
 A writer that disabled the section (``dynamic_settings_section_name = None``
 on its plugin) is read in the same way. The section parameters that the

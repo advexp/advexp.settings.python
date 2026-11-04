@@ -9,22 +9,24 @@ that are declared per settings class: the naming parameters of the source
 builder (``env_source(...)``, ``dotenv_source(...)``). Each class has its
 own dictionary of rules (the declaration of a subclass never changes the
 variables of inherited members), and a member is resolved by the dictionary
-of the class that declared it::
+of the class that declared it:
 
-    import advexp.settings as adv_settings
-    import advexp.settings.plugins.environment.variables as env
+```python
+import advexp.settings as adv_settings
+import advexp.settings.plugins.environment.variables as env
 
-    class AppSettings(adv_settings.Settings, options=env.env_source(
-        name_prefix="APP_", name_case=env.NameCase.UPPER,
-    )):
-        # APP_SESSION_TTL
-        session_ttl: timedelta = timedelta(minutes=30)
+class AppSettings(adv_settings.Settings, options=env.env_source(
+    name_prefix="APP_", name_case=env.NameCase.UPPER,
+)):
+    # APP_SESSION_TTL
+    session_ttl: timedelta = timedelta(minutes=30)
 
-    # APP_SESSION_TTL=1:30:00 in the environment
-    AppSettings.load_settings()
+# APP_SESSION_TTL=1:30:00 in the environment
+AppSettings.load_settings()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppSettings.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppSettings.session_ttl))
+```
 
 This package is the vocabulary of the family. Importing it registers the
 options validator and brings in the naming constants. The vocabulary itself

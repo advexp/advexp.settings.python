@@ -6,10 +6,13 @@
 Python decorators apply only to functions and classes, so a setting member
 is declared by *assigning* the attribute instance. The settings metaclass
 wraps the instance into a
-:class:`~advexp.settings_base.setting_descriptor.SettingDescriptor`::
+:class:`~advexp.settings_base.setting_descriptor.SettingDescriptor`:
 
-    class LocalSettings(Settings):
-        airplane_mode: bool = Setting(name="airplaneMode", default=False)
+```python
+class LocalSettings(Settings):
+    airplane_mode: bool = Setting(name="airplaneMode", default=False)
+```
+
 """
 
 from __future__ import annotations

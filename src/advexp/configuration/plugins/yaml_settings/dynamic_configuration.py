@@ -35,11 +35,13 @@ class YAMLDynamicSettingsConfiguration(metaclass=ModuleDefaultMeta):
 
     A module can declare the dynamic entries' own file for itself alone —
     at the module's top level, with ``for_this_module`` from the package
-    root::
+    root:
 
+    ```python
         YAMLDynamicSettingsConfiguration.file_path = for_this_module(
             Path("dynamic-settings.yaml")
         )
+    ```
 
     The declaration holds for the classes of the module it is written in
     and wins over this attribute; modules without one keep reading the

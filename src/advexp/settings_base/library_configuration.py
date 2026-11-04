@@ -155,15 +155,17 @@ class LibraryConfiguration:
         receives every record that the machinery writes: you can set a level on it
         or add a handler with a formatter to it, all with standard ``logging``. The
         name stays the own spelling of the library: the application configures the
-        channel that it was handed, and never one that it looked up by name::
+        channel that it was handed, and never one that it looked up by name:
 
-            handler = logging.StreamHandler()
-            handler.setFormatter(
-                logging.Formatter("%(levelname)s:%(name)s: %(message)s")
-            )
-            logger = LibraryConfiguration.logger()
-            logger.addHandler(handler)
-            logger.propagate = False  # the application's root stays quiet
+        ```python
+                handler = logging.StreamHandler()
+                handler.setFormatter(
+                    logging.Formatter("%(levelname)s:%(name)s: %(message)s")
+                )
+                logger = LibraryConfiguration.logger()
+                logger.addHandler(handler)
+                logger.propagate = False  # the application's root stays quiet
+        ```
 
         The propagation parameter matters when the application also configures the
         root logger. ``logging.basicConfig()`` puts a handler there, so a channel

@@ -32,10 +32,12 @@ def mapping_source_for(cls: type) -> MappingSourceLink:
     """The live mapping source of ``cls``: the chain link that ``set()`` fills.
 
     Declare the link with ``mapping_source()`` (the builder called without a
-    dictionary), and then reach it from the class::
+    dictionary), and then reach it from the class:
 
+    ```python
         mapping_source_for(AppConfig).set({"token": "dev-token"})
         AppConfig.load_configuration()
+    ```
 
     The resolver reads the nearest chain. A subclass without a chain of its
     own shares the mapping source of its base class: one dictionary, one

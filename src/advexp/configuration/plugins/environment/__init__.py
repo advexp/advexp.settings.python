@@ -8,22 +8,24 @@ The process environment and ``.env`` files address a single variable
 space. Therefore, every source of the family builds names by the rules
 that are declared on the environment link of the chain:
 ``env_source(name_prefix=..., name_case=...)`` or
-``dotenv_source(file=..., name_prefix=...)``, with one seat per class::
+``dotenv_source(file=..., name_prefix=...)``, with one seat per class:
 
-    import advexp.configuration.plugins.environment.variables as env
-    import advexp.configuration as adv_config
+```python
+import advexp.configuration.plugins.environment.variables as env
+import advexp.configuration as adv_config
 
-    class AppConfig(adv_config.Configuration, options=env.env_source(
-        name_prefix="APP_", name_case=env.NameCase.UPPER,
-    )):
-        # APP_SESSION_TTL, required
-        session_ttl: timedelta = env.environment_variable_setting(default="0:30:00")
+class AppConfig(adv_config.Configuration, options=env.env_source(
+    name_prefix="APP_", name_case=env.NameCase.UPPER,
+)):
+    # APP_SESSION_TTL, required
+    session_ttl: timedelta = env.environment_variable_setting(default="0:30:00")
 
-    # APP_SESSION_TTL=1:30:00 in the environment
-    AppConfig.load_configuration()
+# APP_SESSION_TTL=1:30:00 in the environment
+AppConfig.load_configuration()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppConfig.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppConfig.session_ttl))
+```
 
 This package is the vocabulary of the family. Importing it registers the
 options validator and brings in the naming options and their constants.

@@ -4,19 +4,21 @@
 """JSON file configuration source.
 
 Importing this package enables the source; no explicit registration call
-is needed::
+is needed:
 
-    import advexp.configuration as adv_config
-    import advexp.configuration.plugins.json_settings as js
+```python
+import advexp.configuration as adv_config
+import advexp.configuration.plugins.json_settings as js
 
-    class AppConfig(adv_config.Configuration, options=js.json_source("app.json")):
-        # reads the full-name keys of app.json
-        session_ttl: timedelta = js.json_setting(default="0:30:00")
+class AppConfig(adv_config.Configuration, options=js.json_source("app.json")):
+    # reads the full-name keys of app.json
+    session_ttl: timedelta = js.json_setting(default="0:30:00")
 
-    AppConfig.load_configuration()
+AppConfig.load_configuration()
 
-    # datetime.timedelta(seconds=5400) — parsed, not a string
-    print(repr(AppConfig.session_ttl))
+# datetime.timedelta(seconds=5400) — parsed, not a string
+print(repr(AppConfig.session_ttl))
+```
 
 Declare members through the ``json_setting`` factory so that the
 assignments pass type checking. Assigning a ``JSONSetting`` instance does

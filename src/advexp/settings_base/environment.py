@@ -7,12 +7,14 @@ Both backends of the family, the process environment and a ``.env`` file,
 address one variable space. Everything that governs the addressing lives in
 the foundation of the family: the naming options (``name_prefix``,
 ``name_case``, ``nested_delimiter``) and the dotenv file binding. This
-module gathers it, so one import gives the whole vocabulary::
+module gathers it, so one import gives the whole vocabulary:
 
-    from advexp.settings_base.environment import (
-        NameCase,
-        environment_options,
-    )
+```python
+from advexp.settings_base.environment import (
+    NameCase,
+    environment_options,
+)
+```
 
 The setting factories stay with their backends: a factory binds a member to
 a plugin, and plugins live in the distributions, above the base. The

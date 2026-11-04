@@ -45,12 +45,14 @@ def dotenv_source(
 
     Pass the result of the builder to the ``options=`` keyword of the
     ``class`` statement, either alone (for a class that reads nothing else) or
-    inside ``Sources(...)`` as one link of the chain::
+    inside ``Sources(...)`` as one link of the chain:
 
+    ```python
         class AppConfig(Configuration, options=Sources(
             env_source(name_prefix="APP_", name_case=NameCase.UPPER),
             dotenv_source(file="app.env"),
         )):
+    ```
 
     ``file`` names the file that the link reads. A missing file behaves as an
     empty one: required members are reported, and defaults stand in. The name

@@ -64,10 +64,12 @@ def yaml_source(
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that keeps everything in one YAML
     file) or next to the builders of other families in one ``options=``
-    sequence::
+    sequence:
 
+    ```python
         class AppSettings(Settings, options=ys.yaml_source(file="app-settings.yaml")):
             token: str
+    ```
 
     ``file`` names the file of the declared members of the class. The extension
     is not checked: any path works. A builder without ``file`` uses the module

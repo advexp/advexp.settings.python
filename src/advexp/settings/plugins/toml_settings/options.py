@@ -64,10 +64,12 @@ def toml_source(
     Pass the result of the builder to the ``options=`` keyword of the ``class``
     statement, either alone (for a class that keeps everything in one TOML
     file) or next to the builders of other families in one ``options=``
-    sequence::
+    sequence:
 
+    ```python
         class AppSettings(Settings, options=ts.toml_source(file="app-settings.toml")):
             token: str
+    ```
 
     ``file`` names the file of the declared members of the class. A builder
     without ``file`` uses the module default of the backend. The name may

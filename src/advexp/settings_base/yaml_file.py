@@ -85,14 +85,16 @@ def yaml_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
     another family: the plain members read the single source of the class, and
     the members that are declared through the factory of the family,
     ``yaml_setting(...)``, read this file. Pass the result of the builder next to
-    the source builder in one ``options=`` sequence::
+    the source builder in one ``options=`` sequence:
 
+    ```python
         class AppSettings(Settings, options=(
             env_source(name_prefix="APP_", name_case=NameCase.UPPER),
             yaml_file("app-settings.yaml"),
         )):
             mode: str = "production"  # a plain member: one source — env
             retries: int = yaml_setting(name="retries", default=3)
+    ```
 
     A class that is served by the YAML storage alone names its file on the source
     builder, ``yaml_source(file=...)``. That builder binds the class and lets

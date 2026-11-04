@@ -55,10 +55,10 @@ def toml_source(
     ``Sources(...)`` as one link of the chain:
 
     ```python
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_"),
-            toml_source(file="app.toml"),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_"),
+        toml_source(file="app.toml"),
+    )):
     ```
 
     ``file`` names the file that the link reads. It may contain template slots

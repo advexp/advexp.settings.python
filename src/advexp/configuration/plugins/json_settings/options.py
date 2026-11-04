@@ -58,10 +58,10 @@ def json_source(
     ``Sources(...)`` as one link of the chain:
 
     ```python
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_"),
-            json_source(file="app.json"),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_"),
+        json_source(file="app.json"),
+    )):
     ```
 
     ``file`` names the file that the link reads. It may contain template slots

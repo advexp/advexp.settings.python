@@ -138,12 +138,12 @@ def environment_options(
     Pass them to the ``class`` statement:
 
     ```python
-        class AppSettings(Settings, options=environment_options(
-            name_prefix="APP_", name_case=NameCase.UPPER,
-        )):
+    class AppSettings(Settings, options=environment_options(
+        name_prefix="APP_", name_case=NameCase.UPPER,
+    )):
 
-            # APP_SESSION_TTL
-            session_ttl: timedelta = environment_variable_setting(default="0:30:00")
+        # APP_SESSION_TTL
+        session_ttl: timedelta = environment_variable_setting(default="0:30:00")
     ```
 
     The ``options=`` keyword of the ``class`` statement is the readable spelling

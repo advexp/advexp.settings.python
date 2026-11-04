@@ -28,8 +28,8 @@ class ISettingNameDescriber(abc.ABC):
     and it names the file that the address alone cannot name:
 
     ```python
-        member 'host' (environment variable 'DEMO_APP_HOST') of 'AppConfig'
-        member 'port' (key 'port' in the TOML file /etc/app.toml) of ...
+    member 'host' (environment variable 'DEMO_APP_HOST') of 'AppConfig'
+    member 'port' (key 'port' in the TOML file /etc/app.toml) of ...
     ```
 
     :class:`~advexp.settings_base.settings_base_serializer.SettingsBaseSerializer`

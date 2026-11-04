@@ -40,8 +40,8 @@ def mapping_source(mapping: Optional[Mapping[str, Any]] = None) -> Mapping[str, 
     statement:
 
     ```python
-        class AppSettings(Settings, options=mapping_source(BASE_DEFAULTS)):
-            token: str
+    class AppSettings(Settings, options=mapping_source(BASE_DEFAULTS)):
+        token: str
     ```
 
     ``mapping`` seeds the storage. The dictionary is copied at the call, so a

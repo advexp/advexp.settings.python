@@ -87,12 +87,12 @@ def toml_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
     the source builder in one ``options=`` sequence:
 
     ```python
-        class AppSettings(Settings, options=(
-            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
-            toml_file("app-settings.toml"),
-        )):
-            mode: str = "production"  # a plain member: one source — env
-            retries: int = toml_setting(name="retries", default=3)
+    class AppSettings(Settings, options=(
+        env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        toml_file("app-settings.toml"),
+    )):
+        mode: str = "production"  # a plain member: one source — env
+        retries: int = toml_setting(name="retries", default=3)
     ```
 
     A class that is served by the TOML storage alone names its file on the source

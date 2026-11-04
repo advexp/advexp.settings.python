@@ -257,7 +257,7 @@ class Configuration(metaclass=ConfigurationMeta):
         as they are, so treat the snapshot accordingly:
 
         ```python
-                snapshot = AppConfig.to_dict()
+        snapshot = AppConfig.to_dict()
         ```
 
         """
@@ -283,7 +283,7 @@ class Configuration(metaclass=ConfigurationMeta):
         accordingly:
 
         ```python
-                snapshot = AppConfig.to_object()
+        snapshot = AppConfig.to_object()
         ```
 
         """

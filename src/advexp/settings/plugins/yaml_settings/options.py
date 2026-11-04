@@ -67,8 +67,8 @@ def yaml_source(
     sequence:
 
     ```python
-        class AppSettings(Settings, options=ys.yaml_source(file="app-settings.yaml")):
-            token: str
+    class AppSettings(Settings, options=ys.yaml_source(file="app-settings.yaml")):
+        token: str
     ```
 
     ``file`` names the file of the declared members of the class. The extension

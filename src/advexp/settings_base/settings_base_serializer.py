@@ -153,8 +153,8 @@ class SettingsBaseSerializer(
         the view does not apply:
 
         ```python
-                setting = self.attribute_of(attr, JSONSetting)
-                path = setting.path if setting is not None else None
+        setting = self.attribute_of(attr, JSONSetting)
+        path = setting.path if setting is not None else None
         ```
 
         """

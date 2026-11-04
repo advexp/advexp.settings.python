@@ -67,8 +67,8 @@ def toml_source(
     sequence:
 
     ```python
-        class AppSettings(Settings, options=ts.toml_source(file="app-settings.toml")):
-            token: str
+    class AppSettings(Settings, options=ts.toml_source(file="app-settings.toml")):
+        token: str
     ```
 
     ``file`` names the file of the declared members of the class. A builder

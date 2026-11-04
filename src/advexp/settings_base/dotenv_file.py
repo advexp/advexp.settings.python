@@ -76,12 +76,12 @@ def dotenv_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
     ``options=`` sequence:
 
     ```python
-        class AppSettings(Settings, options=(
-            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
-            dotenv_file("app.env"),
-        )):
-            mode: str = "production"  # a plain member: one source — env
-            flag: bool = dotenv_setting(default=False)  # APP_FLAG
+    class AppSettings(Settings, options=(
+        env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        dotenv_file("app.env"),
+    )):
+        mode: str = "production"  # a plain member: one source — env
+        flag: bool = dotenv_setting(default=False)  # APP_FLAG
     ```
 
     A class that is served by the dotenv storage alone names its file on the

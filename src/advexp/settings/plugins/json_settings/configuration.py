@@ -27,9 +27,9 @@ class JSONSettingsConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        JSONSettingsConfiguration.file_path = for_this_module(
-            Path("app-settings.json")
-        )
+    JSONSettingsConfiguration.file_path = for_this_module(
+        Path("app-settings.json")
+    )
     ```
 
     The declaration holds for the classes of the module it is written

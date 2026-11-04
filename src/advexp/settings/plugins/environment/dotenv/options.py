@@ -57,10 +57,10 @@ def dotenv_source(
     the builders of other families in one ``options=`` sequence:
 
     ```python
-        class AppSettings(Settings, options=dotenv_source(
-            file=".env", name_prefix="APP_", name_case=NameCase.UPPER,
-        )):
-            mode: str
+    class AppSettings(Settings, options=dotenv_source(
+        file=".env", name_prefix="APP_", name_case=NameCase.UPPER,
+    )):
+        mode: str
     ```
 
     ``file`` names the file that the backend reads and writes. A builder

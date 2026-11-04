@@ -35,8 +35,8 @@ def mapping_source_for(cls: type) -> MappingSourceLink:
     dictionary), and then reach it from the class:
 
     ```python
-        mapping_source_for(AppConfig).set({"token": "dev-token"})
-        AppConfig.load_configuration()
+    mapping_source_for(AppConfig).set({"token": "dev-token"})
+    AppConfig.load_configuration()
     ```
 
     The resolver reads the nearest chain. A subclass without a chain of its

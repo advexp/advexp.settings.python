@@ -58,10 +58,10 @@ def yaml_source(
     ``Sources(...)`` as one link of the chain:
 
     ```python
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_"),
-            yaml_source(file="app.yaml"),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_"),
+        yaml_source(file="app.yaml"),
+    )):
     ```
 
     ``file`` names the file that the link reads. The extension is not checked:

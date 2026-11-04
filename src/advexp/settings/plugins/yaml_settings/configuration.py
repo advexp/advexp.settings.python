@@ -27,9 +27,9 @@ class YAMLSettingsConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        YAMLSettingsConfiguration.file_path = for_this_module(
-            Path("app-settings.yaml")
-        )
+    YAMLSettingsConfiguration.file_path = for_this_module(
+        Path("app-settings.yaml")
+    )
     ```
 
     The declaration holds for the classes of the module it is written

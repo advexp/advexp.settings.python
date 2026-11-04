@@ -206,7 +206,7 @@ class Settings(metaclass=PlainSettingsMeta):
         stay exactly as they were. If everything passes, nothing is raised:
 
         ```python
-                LocalSettings.validate_settings()
+        LocalSettings.validate_settings()
         ```
 
         """
@@ -303,7 +303,7 @@ class Settings(metaclass=PlainSettingsMeta):
         snapshot accordingly:
 
         ```python
-                snapshot = LocalSettings.to_dict()
+        snapshot = LocalSettings.to_dict()
         ```
 
         """
@@ -335,8 +335,8 @@ class Settings(metaclass=PlainSettingsMeta):
         values:
 
         ```python
-                LocalSettings.update_from_dict({'airplane_mode': True})
-                LocalSettings.save_settings()
+        LocalSettings.update_from_dict({'airplane_mode': True})
+        LocalSettings.save_settings()
         ```
 
         """
@@ -356,7 +356,7 @@ class Settings(metaclass=PlainSettingsMeta):
         accordingly. Apply the snapshot back with :meth:`update_from_object`:
 
         ```python
-                snapshot = LocalSettings.to_object()
+        snapshot = LocalSettings.to_object()
         ```
 
         """
@@ -394,8 +394,8 @@ class Settings(metaclass=PlainSettingsMeta):
         values:
 
         ```python
-                LocalSettings.update_from_object(snapshot)
-                LocalSettings.save_settings()
+        LocalSettings.update_from_object(snapshot)
+        LocalSettings.save_settings()
         ```
 
         """

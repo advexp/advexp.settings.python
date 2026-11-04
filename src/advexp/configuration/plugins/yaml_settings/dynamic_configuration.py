@@ -38,9 +38,9 @@ class YAMLDynamicSettingsConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        YAMLDynamicSettingsConfiguration.file_path = for_this_module(
-            Path("dynamic-settings.yaml")
-        )
+    YAMLDynamicSettingsConfiguration.file_path = for_this_module(
+        Path("dynamic-settings.yaml")
+    )
     ```
 
     The declaration holds for the classes of the module it is written in

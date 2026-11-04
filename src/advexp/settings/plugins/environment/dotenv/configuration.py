@@ -30,7 +30,7 @@ class DotenvConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        DotenvConfiguration.file_path = for_this_module(Path("app.env"))
+    DotenvConfiguration.file_path = for_this_module(Path("app.env"))
     ```
 
     The declaration holds for the classes of the module it is written

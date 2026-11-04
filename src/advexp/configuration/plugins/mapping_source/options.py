@@ -43,14 +43,14 @@ def mapping_source(mapping: Optional[Mapping[str, Any]] = None) -> SourceBinding
     chain, which is the last place a load looks before the declared defaults:
 
     ```python
-        BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
+    BASE_DEFAULTS = {"token": "dev-token", "port": 8080}
 
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_"),
-            json_source(file="app.json"),
-            mapping_source(BASE_DEFAULTS),
-        )):
-            token: str
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_"),
+        json_source(file="app.json"),
+        mapping_source(BASE_DEFAULTS),
+    )):
+        token: str
     ```
 
     The dictionary that is passed in is copied at the call, so a later change

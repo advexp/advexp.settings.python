@@ -38,9 +38,9 @@ class JSONDynamicSettingsConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        JSONDynamicSettingsConfiguration.file_path = for_this_module(
-            Path("dynamic-settings.json")
-        )
+    JSONDynamicSettingsConfiguration.file_path = for_this_module(
+        Path("dynamic-settings.json")
+    )
     ```
 
     The declaration holds for the classes of the module it is written in

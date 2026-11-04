@@ -152,7 +152,7 @@ def for_this_module(value: Any) -> Any:
     Write the call in the assignment itself, at the top level of the module:
 
     ```python
-        holder.file_path = for_this_module(Path("app-settings.json"))
+    holder.file_path = for_this_module(Path("app-settings.json"))
     ```
 
     The function names the calling module at the call, and the metaclass of the

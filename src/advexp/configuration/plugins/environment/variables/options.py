@@ -39,10 +39,10 @@ def env_source(
     ``Sources(...)`` as one link of the chain:
 
     ```python
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
-            json_source(file="app.json"),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        json_source(file="app.json"),
+    )):
     ```
 
     The naming parameters ``name_prefix``, ``name_case`` and

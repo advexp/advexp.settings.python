@@ -48,10 +48,10 @@ def dotenv_source(
     inside ``Sources(...)`` as one link of the chain:
 
     ```python
-        class AppConfig(Configuration, options=Sources(
-            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
-            dotenv_source(file="app.env"),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        dotenv_source(file="app.env"),
+    )):
     ```
 
     ``file`` names the file that the link reads. A missing file behaves as an

@@ -121,12 +121,12 @@ def env_parameter(
     a file, either alone or in a tuple:
 
     ```python
-        app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
 
-        class AppConfig(Configuration, options=Sources(
-            json_source(file="app.json"),
-            json_source(file="settings-{APP_ENV}.json", parameters=app_env),
-        )):
+    class AppConfig(Configuration, options=Sources(
+        json_source(file="app.json"),
+        json_source(file="settings-{APP_ENV}.json", parameters=app_env),
+    )):
     ```
 
     ``variable`` names the environment variable, and the template spells the

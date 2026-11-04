@@ -27,9 +27,9 @@ class TOMLSettingsConfiguration(metaclass=ModuleDefaultMeta):
     root:
 
     ```python
-        TOMLSettingsConfiguration.file_path = for_this_module(
-            Path("app-settings.toml")
-        )
+    TOMLSettingsConfiguration.file_path = for_this_module(
+        Path("app-settings.toml")
+    )
     ```
 
     The declaration holds for the classes of the module it is written

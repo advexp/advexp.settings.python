@@ -38,9 +38,9 @@ class TOMLDynamicSettingsConfiguration(metaclass=ModuleDefaultMeta):
     from the package root:
 
     ```python
-        TOMLDynamicSettingsConfiguration.file_path = for_this_module(
-            Path("dynamic-settings.toml")
-        )
+    TOMLDynamicSettingsConfiguration.file_path = for_this_module(
+        Path("dynamic-settings.toml")
+    )
     ```
 
     The declaration holds for the classes of the module it is written

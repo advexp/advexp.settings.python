@@ -43,10 +43,10 @@ def env_source(
     the builders of other families in one ``options=`` sequence:
 
     ```python
-        class AppSettings(Settings, options=env.env_source(
-            name_prefix="APP_", name_case=env.NameCase.UPPER,
-        )):
-            mode: str
+    class AppSettings(Settings, options=env.env_source(
+        name_prefix="APP_", name_case=env.NameCase.UPPER,
+    )):
+        mode: str
     ```
 
     The naming parameters ``name_prefix``, ``name_case``, and

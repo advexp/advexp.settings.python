@@ -66,8 +66,8 @@ def json_source(
     or next to the builders of other families in one ``options=`` sequence:
 
     ```python
-        class AppSettings(Settings, options=js.json_source(file="app-settings.json")):
-            token: str
+    class AppSettings(Settings, options=js.json_source(file="app-settings.json")):
+        token: str
     ```
 
     ``file`` names the file of the declared members of the class. A builder

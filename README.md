@@ -8,25 +8,14 @@ The packages on PyPI:
 
 The full documentation lives at <a href="https://docs.advexp.net" target="_blank" rel="noopener noreferrer">https://docs.advexp.net</a>.
 
-**Advexp.Settings** loads and saves typed settings through pluggable
+**Advexp.Settings** — loads and saves typed settings through pluggable
 backends: environment variables, dotenv, JSON, TOML and YAML files.
 
-**Advexp.Configuration**, the read-only counterpart, loads the same
+**Advexp.Configuration** — the read-only counterpart, loads the same
 declarations from its sources without write-back. The packages share the
 declaration syntax, the conversion contract, validation and the plugin
 API — a class migrates between them by changing the base class and the
 imports.
-
-| Package                | Role                                                                        |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `advexp.settings`      | typed settings, loaded and saved through pluggable backends                 |
-| `advexp.configuration` | the read-only counterpart: the same declarations, never written back       |
-| `advexp.settings_base` | the machinery both share: context, conversion, plugin and serializer bases |
-
-Applications install the application packages and import them;
-`advexp.settings-base` arrives as their dependency and is not an
-application entry point — see
-[its README](packages/advexp-settings-base/README.md).
 
 ## A quick example
 

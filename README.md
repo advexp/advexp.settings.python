@@ -9,6 +9,7 @@ shared `advexp.settings_base` they are built on. The product site lives at
 
 **advexp.settings** loads and saves typed settings through pluggable
 backends: environment variables, dotenv, JSON, TOML and YAML files.
+
 **advexp.configuration**, the read-only counterpart, loads the same
 declarations from its sources without write-back. The packages share the
 declaration syntax, the conversion contract, validation and the plugin

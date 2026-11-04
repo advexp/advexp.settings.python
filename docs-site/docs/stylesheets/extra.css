@@ -103,6 +103,24 @@ html {
   background-color: rgba(0, 0, 0, 0.25);
 }
 
+/* The link inside a package block fills the block, so a click lands on
+   any part of the colored area instead of only on the name. The height
+   and the removed top margin stretch the link over the block's full
+   height; the negative margins pull it over the item's side padding,
+   and the same padding restored inside the link keeps the name exactly
+   where it stood. The theme's hover highlight now answers the whole
+   block too. */
+.md-tabs__item:nth-child(2) > .md-tabs__link,
+.md-tabs__item:nth-child(3) > .md-tabs__link {
+  height: 100%;
+  margin-top: 0;
+  margin-left: -0.6rem;
+  margin-right: -0.6rem;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+  align-items: center;
+}
+
 /* The sidebars show no scrollbar, ever. On page turns the theme's layout
    settles for a moment with a sidebar a few pixels over its height limit;
    the overlay scrollbar indicators of macOS take that instant as a cue,

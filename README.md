@@ -6,17 +6,12 @@ The packages on PyPI:
 
 <a href="https://pypi.org/project/advexp-configuration/" target="_blank" rel="noopener noreferrer"><img src="assets/pypi-advexp-configuration.svg" alt="Advexp.Configuration v0.1.0 on PyPI" height="40"></a>
 
-Typed application settings and configuration with pluggable backends.
-This repository carries the free, Apache-2.0 core of the family: the
-`advexp.settings` and `advexp.configuration` application packages and the
-shared `advexp.settings_base` they are built on.
-
 The full documentation lives at <a href="https://docs.advexp.net" target="_blank" rel="noopener noreferrer">https://docs.advexp.net</a>.
 
-**advexp.settings** loads and saves typed settings through pluggable
+**Advexp.Settings** loads and saves typed settings through pluggable
 backends: environment variables, dotenv, JSON, TOML and YAML files.
 
-**advexp.configuration**, the read-only counterpart, loads the same
+**Advexp.Configuration**, the read-only counterpart, loads the same
 declarations from its sources without write-back. The packages share the
 declaration syntax, the conversion contract, validation and the plugin
 API — a class migrates between them by changing the base class and the

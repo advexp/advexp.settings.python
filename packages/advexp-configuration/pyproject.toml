@@ -72,10 +72,9 @@ dev = ["pytest", "build", "twine", "ruff==0.16.5", "mypy==1.20.2", "python-doten
 
 [project.urls]
 Homepage = "https://advexp.net"
-Documentation = "https://github.com/advexp/advexp.settings.python"
+Documentation = "https://docs.advexp.net/configuration/"
 Repository = "https://github.com/advexp/advexp.settings.python"
 "Issue tracker" = "https://github.com/advexp/advexp.settings.python/issues"
-Changelog = "https://github.com/advexp/advexp.settings.python/blob/develop/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -259,7 +259,5 @@ and the process-wide value). The default is the shared file, which is the
 The stored form is a contract between the two packages: a file that is
 written by one package can be read by the other. For this reason, the
 layouts described above are frozen public formats, not a private choice of
-this package. The reading side is described in full in the
-[Advexp.Configuration overview](configuration.md#dynamic-settings-reading-a-written-collection).
-The sample `samples/both_packages/dynamic_exchange.py` walks through the
-whole round trip, in both layouts and both formats.
+this package. The sample `samples/both_packages/dynamic_exchange.py` walks
+through the whole round trip, in both layouts and both formats.

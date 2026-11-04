@@ -1,0 +1,169 @@
+/* Brand palette of advexp.net: the header carries the site's primary
+   blue, the accent is its lighter shade, and the dark scheme takes the
+   darker one. */
+:root {
+  --md-primary-fg-color: #0088cc;
+  --md-accent-fg-color: #0099e6;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0077b3;
+  --md-accent-fg-color: #0099e6;
+}
+
+/* The scrollbar no longer moves the page. A long page shows the scrollbar,
+   a short one doesn't, and the track's appearing and disappearing used to
+   change the page's width, shifting the centered grid — the header, the
+   tab bar, the content — a few pixels sideways between pages (seen
+   between Home and the API reference). scrollbar-gutter reserves the
+   track's width on every page, so the grid keeps one resting place;
+   browsers without it (Safari before 18.2) fall back to overflow-y,
+   which keeps the track itself always present. Overlay scrollbars, the
+   macOS default, reserve nothing either way and stay as they were. */
+html {
+  overflow-y: scroll;
+}
+
+@supports (scrollbar-gutter: stable) {
+  html {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}
+
+/* No logo in the header: the site name alone. The empty logo anchor must
+   be hidden with enough specificity: the theme re-enables its display
+   after its own hiding rule, and the anchor's margin and padding (1.2rem
+   in total) are exactly the offset that pushed the name off the tabs'
+   edge. The same empty anchor sits in the drawer's title. */
+.md-header__inner .md-header__button.md-logo,
+.md-nav__title .md-nav__button.md-logo {
+  display: none;
+}
+
+/* The title's logo-gap margin, zeroed with a selector that matches the
+   theme's own `[dir=ltr] .md-header__title` in specificity. */
+[dir] .md-header__title {
+  margin-left: 0;
+}
+
+/* Code blocks keep their lines whole: a narrow pane scrolls them
+   horizontally instead of breaking lines. Inline code in prose still
+   wraps, so long dotted names never stick out of a paragraph. */
+.md-typeset :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+/* The header's title is a breadcrumb: the site name and the page's
+   chain in the nav side by side — the site name goes home, every crumb
+   goes to its page (the markup lives in
+   overrides/partials/header.html). The theme's own two-topic title,
+   which swaps the site name for the page title on scroll, stays in the
+   markup for its JavaScript and is hidden here. */
+.md-header__title .md-header__ellipsis {
+  display: none;
+}
+
+.md-header__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.md-header__crumb {
+  color: inherit;
+  white-space: nowrap;
+}
+
+/* The section crumb gives way on a narrow pane instead of pushing the
+   palette and repo buttons off the edge. */
+.md-header__crumb.md-ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.md-header__crumbs-sep {
+  opacity: 0.5;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* The family's two packages — Settings and Configuration, the tabs'
+   second and third items — sit as flat blocks of a darker blue filling
+   the bar's height, the way a classic menu marks its primary entries.
+   The bar is sticky with the header (navigation.tabs.sticky), so it
+   never slides under the header and the blocks keep their full height.
+   The shade is a black overlay, so it stays the bar's own blue darkened
+   in both color schemes; the items keep the theme's side padding, so
+   the names sit inside the block instead of on its edge. */
+.md-tabs__item:nth-child(2),
+.md-tabs__item:nth-child(3) {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* The sidebars show no scrollbar, ever. On page turns the theme's layout
+   settles for a moment with a sidebar a few pixels over its height limit;
+   the overlay scrollbar indicators of macOS take that instant as a cue,
+   appearing beside both sidebars and fading out again a blink later. With
+   the indicator barred, a settling sidebar stays quiet, and a genuinely
+   long one (an API reference page's table of contents) still scrolls by
+   the mouse wheel and the trackpad — only the indicator strip is gone.
+   The rule lives in the wide-screen query on purpose: below it the
+   sidebar turns into the navigation drawer, whose own scrollbar stays. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar__scrollwrap {
+    scrollbar-width: none;
+  }
+
+  .md-sidebar__scrollwrap::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The sidebar's section heading is the section's toggle row, and it
+   carries the entries' own font size, so the grouping line reads as
+   one more entry. On wide screens the heading takes the body text's
+   size — bold on top of that, it stands above the entries the way a
+   section heading should. The drawer's rows (narrow screens) keep the
+   theme's size: there the same row is a collapsible toggle sitting
+   among entries of its own size. */
+@media screen and (min-width: 76.25em) {
+  .md-nav--primary .md-nav__item--nested > .md-nav__link {
+    font-size: 1rem;
+  }
+}
+
+/* The right sidebar's "Table of contents" heading takes the same size
+   as the left sidebar's section heading: the two sidebars flank the
+   content, and their grouping lines read alike. The rule sits in the
+   wide-screen query with its left-side twin — below the breakpoint the
+   right sidebar is collapsed, so the theme's own size has no screen to
+   show on. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--secondary .md-nav__title {
+    font-size: 1rem;
+  }
+}
+
+/* A page that is its own section — one of the flat top-level pages,
+   with no pages nested under it — keeps a one-line sidebar: the lifted
+   navigation hides every top-level entry but the page itself, and the
+   line says nothing the tab bar doesn't. On wide screens such a
+   sidebar is dropped, and the content starts at the grid's left edge,
+   where the sidebar used to stand. The selector asks the active
+   top-level entry for a nested list: a real section (a package tab,
+   the API reference) keeps its sidebar, a plain page loses it, and
+   future flat pages take care of themselves. Below 76.25em the
+   sidebar is the navigation drawer, so both rules stay inside the
+   wide-screen query and the drawer keeps the whole navigation. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary:not(:has(.md-nav--lifted > .md-nav__list > .md-nav__item--active.md-nav__item--nested)) {
+    display: none;
+  }
+
+  [dir=ltr] .md-sidebar--primary:not(:has(.md-nav--lifted > .md-nav__list > .md-nav__item--active.md-nav__item--nested)) ~ .md-content > .md-content__inner {
+    margin-left: 0;
+  }
+}

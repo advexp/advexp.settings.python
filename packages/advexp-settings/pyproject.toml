@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "advexp-settings"
+version = "0.1.0"
+description = "Application settings for Python"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Alexey Ivakin" },
+]
+keywords = [
+    "settings",
+    "configuration",
+    "config",
+    "appsettings",
+    "environment-variables",
+    "dotenv",
+    "json",
+    "toml",
+    "yaml",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+# the family's base machinery: advexp.settings_base ships separately and is
+# imported by the facades; the pin is lockstep with the monorepo release of
+# the base — loosen together at the first stable release
+dependencies = ["advexp-settings-base==0.1.0"]
+
+[project.optional-dependencies]
+# the dotenv file backend rides python-dotenv
+dotenv = ["python-dotenv"]
+# the TOML file backend rides tomlkit, a format-preserving editor: the
+# file's comments and key order survive the library's writes
+toml = ["tomlkit"]
+# the YAML file backend rides ruamel.yaml in its round-trip mode: the
+# file's comments, key order, quoting style and anchors survive the
+# library's writes; the range keeps to the two live release series
+yaml = ["ruamel.yaml>=0.18,<0.20"]
+# development
+test = [
+    "pytest",
+    "tomli; python_version < '3.11'",
+    "tomlkit",
+    "ruamel.yaml>=0.18,<0.20",
+    "python-dotenv",
+]
+# ruff is pinned: CI enforces `ruff format --check`, so the formatting ruff
+# version must match across machines — bump deliberately and re-run `ruff format .`
+# mypy is pinned exactly, like ruff: a range would let CI resolve a newer
+# release than a local environment carries, and the errors would surface on
+# GitHub alone. The version stays below 2.0: the config targets Python 3.9,
+# and 2.0 dropped --python-version 3.9 — bump together with raising the
+# supported minimum
+dev = [
+    "pytest",
+    "tomli; python_version < '3.11'",
+    "tomlkit",
+    "ruamel.yaml>=0.18,<0.20",
+    "build",
+    "twine",
+    "ruff==0.16.5",
+    "mypy==1.20.2",
+    "python-dotenv",
+]
+
+[project.urls]
+Homepage = "https://advexp.net"
+Documentation = "https://github.com/advexp/advexp.settings.python"
+Repository = "https://github.com/advexp/advexp.settings.python"
+"Issue tracker" = "https://github.com/advexp/advexp.settings.python/issues"
+Changelog = "https://github.com/advexp/advexp.settings.python/blob/develop/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# the free edition's package allowlist: only what is listed ships, so a
+# plugin that is not part of this edition cannot leak into the wheel just by
+# existing in the source tree (kept in sync by tests/test_packaging_allowlist.py).
+# `advexp` itself is a PEP 420 namespace shared by the whole distribution
+# family — it has no files at its root and is deliberately not listed
+include = [
+    "advexp.settings",
+    "advexp.settings._internal",
+    "advexp.settings.plugins",
+    "advexp.settings.plugins.environment",
+    "advexp.settings.plugins.environment.dotenv",
+    "advexp.settings.plugins.environment.variables",
+    "advexp.settings.plugins.json_dynamic_settings",
+    "advexp.settings.plugins.json_settings",
+    "advexp.settings.plugins.mapping_source",
+    "advexp.settings.plugins.toml_dynamic_settings",
+    "advexp.settings.plugins.toml_settings",
+    "advexp.settings.plugins.yaml_dynamic_settings",
+    "advexp.settings.plugins.yaml_settings",
+]
+
+[tool.setuptools.package-data]
+"advexp.settings" = ["py.typed"]

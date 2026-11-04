@@ -1,0 +1,98 @@
+# Workspace configuration of the monorepo (see packages/README.md). Package
+# metadata lives in packages/<name>/pyproject.toml and builds from the shared
+# source tree at the repository root; this file configures the tools that run
+# from the root over src/, tests/ and samples/.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+# the minimum supported Python version, checked with the default ruleset
+python_version = "3.9"
+# advexp is a PEP 420 namespace package: without an explicit base mypy would
+# derive the module name `settings` for src/advexp/settings and fail to
+# resolve the package's internal imports
+# the hand-readable manual suites (the error-matrix twins and the
+# validation suites of both packages) keep their classes in sibling
+# modules, imported by bare name the way pytest's prepend import mode runs
+# them — the folders join the search path so mypy resolves those imports
+# the same way
+mypy_path = [
+    "src",
+    # the error matrix keeps its private edition add-on beside the suite,
+    # imported by bare name like the manual suites below
+    "tests/settings",
+    "tests/settings/error_matrix_manual",
+    "tests/configuration/error_matrix_manual",
+    "tests/settings/validation_manual",
+    "tests/configuration/validation_manual",
+]
+namespace_packages = true
+explicit_package_bases = true
+# a personal scratch draft beside the both-packages sample tour: not part
+# of the checked sample set
+exclude = 'samples/both_packages/main_my\.py$'
+
+# tests type-check against the library, not against pytest's own code:
+# modern pytest uses syntax newer than the 3.9 target above, so its modules
+# are not analyzed at all — in tests the pytest API is Any
+# the samples run as scripts, so their own folder is on sys.path at runtime
+# and the validation tour imports its local backend package as a top-level
+# name (backends); mypy resolves modules through mypy_path instead, and
+# putting the samples folder there would collide the samples' same-named
+# files — so the local imports resolve as Any and the package itself is
+# still type-checked as the file it is
+[[tool.mypy.overrides]]
+module = ["backends", "backends.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pytest", "_pytest.*"]
+follow_imports = "skip"
+
+# tomllib (3.11+) is conditionally imported with a tomli fallback the test
+# environment does not install; the fallback path handles its absence
+[[tool.mypy.overrides]]
+module = ["tomllib", "tomli"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+# package catalogs hold their source as a symlink to the shared src/ tree;
+# the real files are already linted under src/ (a second walk through the
+# symlink would dodge the per-file-ignores keyed to the src/ spelling);
+# the personal scratch draft beside the both-packages sample tour is not
+# part of the checked sample set either
+extend-exclude = ["packages/*/src", "samples/both_packages/main_my.py"]
+
+[tool.ruff.format]
+# `exclude` replaces the root list, so the symlink guard is repeated
+# here. Markdown code samples live by the documentation's own
+# 75-column limit (docs-site pages, package READMEs and the repository
+# README), checked separately in CI and scripts/check.sh; the default
+# 100 would rewrap
+# them. Lint keeps checking them through the root config.
+exclude = ["packages/*/src", "*.md", "samples/both_packages/main_my.py"]
+
+[tool.ruff.lint]
+# default ruff rule set + import sorting; pyupgrade (UP) is intentionally
+# off: annotations must stay typing.Optional for Python 3.9 compatibility
+select = ["E4", "E7", "E9", "F", "I", "TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# each package's supported import sites are its root (advexp.settings,
+# advexp.configuration) and its plugin_api; the _internal subpackage is
+# private (unenforceable at runtime, checked by tests/test_no_internal_imports.py)
+"advexp.settings._internal".msg = "private: import from advexp.settings or advexp.settings.plugin_api"
+"advexp.configuration._internal".msg = "private: import from advexp.configuration or advexp.configuration.plugin_api"
+
+[tool.ruff.lint.per-file-ignores]
+# the facades and the internals themselves may import _internal; the library's
+# own tests unit-test it
+"src/advexp/settings/__init__.py" = ["TID251"]
+"src/advexp/settings/plugin_api.py" = ["TID251"]
+"src/advexp/settings/_internal/**" = ["TID251"]
+"src/advexp/configuration/__init__.py" = ["TID251"]
+"src/advexp/configuration/plugin_api.py" = ["TID251"]
+"src/advexp/configuration/_internal/**" = ["TID251"]
+"tests/**" = ["TID251"]

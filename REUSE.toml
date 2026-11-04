@@ -1,0 +1,29 @@
+version = 1
+
+
+[[annotations]]
+path = [
+    "CHANGELOG.md",
+    "README.md",
+    "pyproject.toml",
+    "requirements.txt",
+    "docs-site/**",
+    "texts/api-reference/**",
+    "packages/advexp-configuration/pyproject.toml",
+    "packages/advexp-configuration/README.md",
+    "packages/advexp-configuration/setup.cfg",
+    "packages/advexp-settings/pyproject.toml",
+    "packages/advexp-settings/README.md",
+    "packages/advexp-settings/setup.cfg",
+    "packages/advexp-settings-base/pyproject.toml",
+    "packages/advexp-settings-base/README.md",
+    "packages/advexp-settings-base/setup.cfg",
+    "samples/**",
+    "scripts/readme-fragments/*",
+    "scripts/public-overlay/*",
+    "scripts/public-overlay/docs-site/**",
+    "tests/**",
+]
+SPDX-FileCopyrightText = "2026 Alexey Ivakin"
+SPDX-License-Identifier = "Apache-2.0"
+

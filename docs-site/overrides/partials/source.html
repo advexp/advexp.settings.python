@@ -1,0 +1,18 @@
+{#--
+  The stock Material source plaque without the component wiring. The
+  theme's JavaScript latches onto data-md-component="source", fetches the
+  repository's stars, forks and latest release from the GitHub API in the
+  visitor's browser and appends them beside the repository name — the
+  community edition (9.7) ships no switch to turn that off, so the
+  attribute itself is the switch: without it the plaque is a plain link
+  to the repository and nothing is fetched.
+-#}
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">
+    {{ config.repo_name }}
+  </div>
+</a>

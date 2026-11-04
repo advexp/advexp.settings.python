@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "advexp-settings-base"
+version = "0.1.0"
+description = "Base machinery shared by the Advexp.Settings and Advexp.Configuration family"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Alexey Ivakin" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# development
+test = ["pytest", "tomli; python_version < '3.11'"]
+# ruff is pinned: CI enforces `ruff format --check`, so the formatting ruff
+# version must match across machines — bump deliberately and re-run `ruff format .`
+# mypy is pinned exactly, like ruff: a range would let CI resolve a newer
+# release than a local environment carries, and the errors would surface on
+# GitHub alone. The version stays below 2.0: the config targets Python 3.9,
+# and 2.0 dropped --python-version 3.9 — bump together with raising the
+# supported minimum
+dev = ["pytest", "tomli; python_version < '3.11'", "build", "twine", "ruff==0.16.5", "mypy==1.20.2"]
+
+# a service distribution of the family: not meant to surface in search —
+# no keywords, no audience/topic classifiers, only the canonical links;
+# what remains are the compatibility facts (status, Python versions, typing)
+[project.urls]
+Homepage = "https://advexp.net"
+Repository = "https://github.com/advexp/advexp.settings.python"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# the distribution's package allowlist: only what is listed ships. `advexp`
+# itself is a PEP 420 namespace shared by the whole distribution family —
+# it has no files at its root and is deliberately not listed
+include = [
+    "advexp.settings_base",
+]
+
+[tool.setuptools.package-data]
+"advexp.settings_base" = ["py.typed"]

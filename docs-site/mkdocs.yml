@@ -1,0 +1,102 @@
+site_name: Advexp.Settings
+site_url: https://docs.advexp.net/
+site_description: Typed application settings and configuration with pluggable backends for Python.
+repo_url: https://github.com/advexp/advexp.settings.python
+repo_name: advexp.settings.python
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [../src]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_bases: false
+            separate_signature: false
+            merge_init_into_class: true
+            # object headings sit one level under the page's section
+            # headings (##), so a section name reads as the bigger,
+            # grouping title it is
+            heading_level: 3
+            # members render in the source's order: the classes group
+            # their members by contract (the serializer's storage
+            # operations, wishes, notification hooks), and the source
+            # order keeps the groups together on the page
+            members_order: source
+            # hide every underscore-leading member: the theme's default
+            # filter lets double-underscore names through (so dunders can
+            # render), which also leaks the name-mangled private machinery
+            # of the extension bases (__stored_names and siblings)
+            filters:
+              - "!^_"
+
+nav:
+  - Home: index.md
+  - Settings:
+      - Overview: settings.md
+      - Getting started: settings/getting-started.md
+  - Configuration:
+      - Overview: configuration.md
+      - Getting started: configuration/getting-started.md
+  - Guide:
+      - Backends: backends.md
+      - Value types: value-types.md
+      - Validation: validation.md
+      - Snapshots: snapshots.md
+      - Metadata: metadata.md
+      - Dynamic settings: dynamic-settings.md
+      - Extending: extending.md
+      - Switching: switching.md
+      - Samples: samples.md
+  - API reference:
+      - Overview: api/index.md
+      - Settings API: api/settings.md
+      - Configuration API: api/configuration.md
+      - Plugin API: api/plugin-api.md

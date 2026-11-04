@@ -63,7 +63,8 @@ AppSettings.retries = 10
 # save one setting: writes the "retries" key of the JSON file
 AppSettings.save_setting(lambda s: s.retries)
 
-# AppSettings.save_settings() would save every setting of the class
+# would save every setting of the class
+# AppSettings.save_settings()
 ```
 
 In this example, the environment is the class's only source.

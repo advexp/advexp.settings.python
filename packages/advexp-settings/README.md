@@ -40,6 +40,16 @@ AppSettings.load_settings()
 # prints datetime.timedelta(seconds=5400):
 # the value is parsed into a timedelta, not left as a string
 print(repr(AppSettings.session_ttl))
+
+# assign directly on the class: values are stored per class, not
+# per instance
+AppSettings.retries = 10
+
+# save one setting: writes the "retries" key of the JSON file
+AppSettings.save_setting(lambda s: s.retries)
+
+# would save every setting of the class
+# AppSettings.save_settings()
 ```
 
 In this example, the environment is the class's only source, and plain

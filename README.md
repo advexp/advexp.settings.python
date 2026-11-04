@@ -1,5 +1,9 @@
 # Advexp.Settings for Python
 
+<table><tr><td><a href="https://pypi.org/project/advexp-settings/"><img src="assets/pypi-advexp-settings.svg" alt="Advexp.Settings v0.1.0 on PyPI" height="48"></a></td></tr><tr><td><a href="https://pypi.org/project/advexp-settings/">Advexp.Settings</a></td></tr></table>
+
+<table><tr><td><a href="https://pypi.org/project/advexp-configuration/"><img src="assets/pypi-advexp-configuration.svg" alt="Advexp.Configuration v0.1.0 on PyPI" height="48"></a></td></tr><tr><td><a href="https://pypi.org/project/advexp-configuration/">Advexp.Configuration</a></td></tr></table>
+
 Typed application settings and configuration with pluggable backends.
 This repository carries the free, Apache-2.0 core of the family: the
 `advexp.settings` and `advexp.configuration` application packages and the

@@ -23,11 +23,12 @@ class AppConfig(
     ),
 ):
     # read from APP_MODE — the prefix plus the member name in upper
-    # case — or, with no such variable, from the JSON file's key
+    # case — or, with no such variable, from the JSON file's
+    # "__main__.AppConfig.mode" key (the module, class and member)
     mode: str = "production"
 
     # read from APP_SESSION_TTL, built the same way, with the same
-    # JSON fallback
+    # JSON fallback (the "__main__.AppConfig.session_ttl" key)
     session_ttl: timedelta = timedelta(minutes=30)
 
     # read from the "retries" key of the JSON file

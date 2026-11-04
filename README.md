@@ -110,5 +110,5 @@ pytest  # the test suite
 
 ## License
 
-Apache License 2.0 — the full texts live in [LICENSES/](LICENSES/) and in
+Apache License 2.0 — the full texts live in [LICENSES](LICENSES) and in
 the packages.

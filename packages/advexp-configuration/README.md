@@ -26,7 +26,8 @@ class AppConfig(
     # case — or, with no such variable, from the JSON file's key
     mode: str = "production"
 
-    # read from APP_SESSION_TTL, built the same way
+    # read from APP_SESSION_TTL, built the same way, with the same
+    # JSON fallback
     session_ttl: timedelta = timedelta(minutes=30)
 
     # read from the "retries" key of the JSON file

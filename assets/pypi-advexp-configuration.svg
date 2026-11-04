@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="300" height="50" role="img" aria-label="advexp-configuration: v0.1.0">
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40" role="img" aria-label="advexp-configuration: v0.1.0">
   <title>advexp-configuration: v0.1.0</title>
   <g shape-rendering="crispEdges">
-    <rect width="225" height="50" fill="#555"/>
-    <rect x="225" width="75" height="50" fill="#3776AB"/>
+    <rect width="225" height="40" fill="#555"/>
+    <rect x="225" width="75" height="40" fill="#3776AB"/>
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="14" font-weight="bold">
-    <text x="112" y="31">advexp-configuration</text>
-    <text x="262" y="31">v0.1.0</text>
+    <text x="112" y="25">advexp-configuration</text>
+    <text x="262" y="25">v0.1.0</text>
   </g>
 </svg>

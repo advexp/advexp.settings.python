@@ -1,5 +1,7 @@
 # Advexp.Settings for Python
 
+The packages on PyPI:
+
 <a href="https://pypi.org/project/advexp-settings/"><img src="assets/pypi-advexp-settings.svg" alt="Advexp.Settings v0.1.0 on PyPI" height="50"></a>
 
 <a href="https://pypi.org/project/advexp-configuration/"><img src="assets/pypi-advexp-configuration.svg" alt="Advexp.Configuration v0.1.0 on PyPI" height="50"></a>

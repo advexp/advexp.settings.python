@@ -3,9 +3,11 @@
 Typed application settings and configuration with pluggable backends.
 This repository carries the free, Apache-2.0 core of the family: the
 `advexp.settings` and `advexp.configuration` application packages and the
-shared `advexp.settings_base` they are built on. The product site lives at
-<https://advexp.net/advexp.settings/>, and the full documentation at
-<https://docs.advexp.net>.
+shared `advexp.settings_base` they are built on.
+
+The product site lives at <https://advexp.net/advexp.settings/>.
+
+The full documentation lives at <https://docs.advexp.net>.
 
 **advexp.settings** loads and saves typed settings through pluggable
 backends: environment variables, dotenv, JSON, TOML and YAML files.

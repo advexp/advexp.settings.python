@@ -22,7 +22,8 @@ class AppConfig(
         js.json_source(file="app-configuration.json"),
     ),
 ):
-    # read from APP_MODE: the prefix plus the member name in upper case
+    # read from APP_MODE — the prefix plus the member name in upper
+    # case — or, with no such variable, from the JSON file's key
     mode: str = "production"
 
     # read from APP_SESSION_TTL, built the same way

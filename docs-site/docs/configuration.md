@@ -33,9 +33,11 @@ class AppConfig(
     # (the module, class and member, dotted)
     mode: str = "production"
 
-    # read from APP_SESSION_TTL, built the same way, with the same
-    # JSON fallback
-    session_ttl: timedelta = timedelta(minutes=30)
+    # the same chain as mode — APP_SESSION_TTL first, else the JSON
+    # key — in the rich chain_setting form, which carries the default
+    session_ttl: timedelta = adv_config.chain_setting(
+        default=timedelta(minutes=30)
+    )
 
     # read from the "retries" key of the JSON file
     retries: int = js.json_setting(name="retries", default=3)

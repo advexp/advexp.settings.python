@@ -24,8 +24,11 @@ class AppSettings(
     # read from APP_MODE: the prefix plus the member name in upper case
     mode: str = "production"
 
-    # read from APP_SESSION_TTL, built the same way
-    session_ttl: timedelta = timedelta(minutes=30)
+    # the same APP_SESSION_TTL address as mode, in the rich setting
+    # form, which carries the default
+    session_ttl: timedelta = adv_settings.setting(
+        default=timedelta(minutes=30)
+    )
 
     # read from the "retries" key of the JSON file
     retries: int = js.json_setting(name="retries", default=3)

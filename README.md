@@ -28,29 +28,32 @@ from datetime import timedelta
 
 import advexp.settings as adv_settings
 import advexp.settings.plugins.environment.variables as env
+import advexp.settings.plugins.json_settings as js
 
 
-class AppSettings(adv_settings.Settings):
-    debug: bool = env.environment_variable_setting(
-        name="APP_DEBUG", default=False
-    )
+class AppSettings(
+    adv_settings.Settings,
+    options=(
+        env.env_source(name_prefix="APP_", name_case=env.NameCase.UPPER),
+        js.json_file("app-settings.json"),
+    ),
+):
+    # read from APP_MODE: the prefix plus the member name in upper case
+    mode: str = "production"
 
-    # APP_SESSION_TTL=1:30:00 in the environment
-    session_ttl: timedelta = env.environment_variable_setting(
-        default="0:30:00"
-    )
+    # read from APP_SESSION_TTL, built the same way
+    session_ttl: timedelta = timedelta(minutes=30)
+
+    # read from the "retries" key of the JSON file
+    retries: int = js.json_setting(name="retries", default=3)
 
 
+# suppose the environment contains APP_SESSION_TTL=1:30:00
 AppSettings.load_settings()
 
-# datetime.timedelta(seconds=5400) — parsed, not a string
+# prints datetime.timedelta(seconds=5400):
+# the value is parsed into a timedelta, not left as a string
 print(repr(AppSettings.session_ttl))
-
-# just assign — values are stored per class
-AppSettings.debug = True
-
-# write every setting back to its backend
-AppSettings.save_settings()
 ```
 
 Members are declared through the backend's factory function, as above —

@@ -42,8 +42,11 @@ class AppSettings(
     # read from APP_MODE: the prefix plus the member name in upper case
     mode: str = "production"
 
-    # read from APP_SESSION_TTL, built the same way
-    session_ttl: timedelta = timedelta(minutes=30)
+    # the same APP_SESSION_TTL address as mode, in the rich setting
+    # form, which carries the default
+    session_ttl: timedelta = adv_settings.setting(
+        default=timedelta(minutes=30)
+    )
 
     # read from the "retries" key of the JSON file
     retries: int = js.json_setting(name="retries", default=3)
@@ -55,11 +58,21 @@ AppSettings.load_settings()
 # prints datetime.timedelta(seconds=5400):
 # the value is parsed into a timedelta, not left as a string
 print(repr(AppSettings.session_ttl))
+
+# assign directly on the class: values are stored per class, not
+# per instance
+AppSettings.retries = 10
+
+# save one setting: writes the "retries" key of the JSON file
+AppSettings.save_setting(lambda s: s.retries)
+
+# would save every setting of the class
+# AppSettings.save_settings()
 ```
 
-Members are declared through the backend's factory function, as above —
-the spelling static checkers accept. Importing a plugin module is what
-enables the plugin; no registration calls are needed.
+Members that carry parameters are declared through factory functions,
+as above — the spelling static checkers accept. Importing a plugin
+module is what enables the plugin; no registration calls are needed.
 
 ## Documentation
 

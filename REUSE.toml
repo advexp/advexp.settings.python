@@ -1,15 +1,16 @@
 version = 1
 
+# The REUSE coverage of the public repository. Its tree differs from the
+# private monorepo: the badge assets sit in assets/, and there is no
+# scripts/ or texts/. This file rides the overlay and replaces the
+# private REUSE.toml in the snapshot wholesale.
 
 [[annotations]]
 path = [
     "CHANGELOG.md",
-    "CHANGELOG-archive-0.1.0.md",
     "README.md",
-    "pyproject.toml",
-    "requirements.txt",
+    "assets/*",
     "docs-site/**",
-    "texts/api-reference/**",
     "packages/advexp-configuration/pyproject.toml",
     "packages/advexp-configuration/README.md",
     "packages/advexp-configuration/setup.cfg",
@@ -19,13 +20,9 @@ path = [
     "packages/advexp-settings-base/pyproject.toml",
     "packages/advexp-settings-base/README.md",
     "packages/advexp-settings-base/setup.cfg",
+    "pyproject.toml",
     "samples/**",
-    "scripts/readme-fragments/*",
-    "scripts/public-overlay/*",
-    "scripts/public-overlay/assets/*",
-    "scripts/public-overlay/docs-site/**",
     "tests/**",
 ]
 SPDX-FileCopyrightText = "2026 Alexey Ivakin"
 SPDX-License-Identifier = "Apache-2.0"
-

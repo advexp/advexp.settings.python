@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- 2026-11-05 — The v0.1.0 tag now marks the release snapshot in this
+  repository, the state whose code is published on PyPI as 0.1.0.
 - 2026-11-05 — The Switching page received a proofread pass: clearer
   wording throughout (the priority of a source, the reason the naming
   rules are shared, "extra" instead of "foreign" fields), reworded code

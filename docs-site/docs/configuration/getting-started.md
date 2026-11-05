@@ -549,7 +549,8 @@ given, each source builds one using the rules of its own family.
 Family factories restrict a member to the sources of one family, which are
 still read in chain order: `json_setting(...)`, `toml_setting(...)`,
 `yaml_setting(...)`, `environment_variable_setting(...)`, and
-`dotenv_setting(...)`. They accept `name=`, `aliases=`, and `default=`. Only
+`dotenv_setting(...)`. They accept `name=`, `aliases=`, `default=`, and all
+value constraints (from `gt` to `validator`, plus `when=`). Only
 the factories of the file families (`json_setting`, `toml_setting`, and
 `yaml_setting`) also accept `path=`, because a document has a tree that a
 path can point into, while a variable name does not. If the class has no

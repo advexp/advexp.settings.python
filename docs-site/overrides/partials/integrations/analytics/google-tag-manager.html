@@ -1,0 +1,12 @@
+{#-
+  The provider named in mkdocs.yml (extra.analytics.provider) — the theme
+  includes this partial from the analytics slot of base.html. The snippet
+  is the one Google issues for the container; the container id lives in
+  the src URL below.
+-#}
+<script async src="https://www.googletagmanager.com/gtm.js?id=GTM-TNF4WSZM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+</script>

@@ -34,6 +34,15 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+# Measured with a Google Tag Manager container, not a GA4 property: the
+# provider name resolves to the partial with the same name under
+# overrides/partials/integrations/analytics/, which carries the snippet
+# Google issues for the container (the built-in google provider loads
+# the gtag.js endpoint and does not fit a GTM container).
+extra:
+  analytics:
+    provider: google-tag-manager
+
 markdown_extensions:
   - admonition
   - attr_list

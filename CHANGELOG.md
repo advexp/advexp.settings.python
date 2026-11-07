@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 2026-11-07 — The documentation site is now measured through a Google
+  Tag Manager container: every built page loads the container script in
+  its head. The change reaches docs.advexp.net with the next publication
+  of the public repository.
+
 ### Changed
 
 - 2026-11-05 — The v0.1.0 tag now marks the release snapshot in this

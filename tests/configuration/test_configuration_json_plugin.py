@@ -19,13 +19,15 @@ import pytest
 from advexp.configuration import AggregateLoadError, Configuration, LibraryConfiguration, Sources
 from advexp.configuration.plugin_api import NO_DEFAULT
 from advexp.configuration.plugins.json_settings import (
-    JSONSetting,
     JSONSettingsPlugin,
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.settings_base.file_bom import UTF8_BOM
+from advexp.settings_base.json_setting import (
+    JSONSetting,
+    json_setting,
+)
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
 
 
@@ -99,7 +101,10 @@ def configured_file(tmp_path) -> Iterator[Path]:
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(JSONSetting) is not None
+    assert (
+        LibraryConfiguration._get_serializer_factory(JSONSetting, "advexp.configuration")
+        is not None
+    )
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
     assert JSONSettingsPlugin in LibraryConfiguration.registered_plugin_classes()
 
@@ -528,7 +533,7 @@ def tagged_attribute() -> Iterator[type]:
     # class, next to the stock JSONSetting registration
     LibraryConfiguration.register_settings_attribute(TaggedJSONSetting, TaggedJSONSerializer)
     yield TaggedJSONSetting
-    LibraryConfiguration._attribute_serializers.pop(TaggedJSONSetting, None)
+    LibraryConfiguration._attribute_serializers.pop((None, TaggedJSONSetting), None)
 
 
 def test_mixed_attribute_classes_read_one_document(configured_file, tagged_attribute):

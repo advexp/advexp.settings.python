@@ -58,28 +58,39 @@ from advexp.configuration.plugin_api import NO_DEFAULT
 from advexp.configuration.plugins.environment import NameCase
 from advexp.configuration.plugins.environment.dotenv import (
     DotenvSerializer,
-    dotenv_setting,
     dotenv_source,
 )
 from advexp.configuration.plugins.environment.variables import (
     EnvironmentVariablesSerializer,
     env_source,
-    environment_variable_setting,
 )
 from advexp.configuration.plugins.json_settings import (
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.configuration.plugins.toml_settings import (
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.configuration.plugins.yaml_settings import (
     YAMLSettingsSerializer,
-    yaml_setting,
     yaml_source,
+)
+from advexp.settings_base.dotenv_setting import (
+    dotenv_setting,
+)
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
+from advexp.settings_base.json_setting import (
+    json_setting,
+)
+from advexp.settings_base.setting import setting
+from advexp.settings_base.toml_setting import (
+    toml_setting,
+)
+from advexp.settings_base.yaml_setting import (
+    yaml_setting,
 )
 
 # the package's channel and its word for a member, spelled out once: every
@@ -762,6 +773,50 @@ def test_several_sources_report_each_in_its_own_words(monkeypatch, tmp_path):
     assert MultiSourceConfiguration.dotenv_extra == 5
 
 
+def test_a_miss_of_the_whole_chain_lists_one_address_per_line(monkeypatch, tmp_path):
+    """A member of no family reads every link; its miss names them one per line."""
+    json_path = tmp_path / "chain.json"
+    dotenv_path = tmp_path / "chain.env"
+    json_path.write_text("{}", encoding="utf-8")
+    dotenv_path.write_text("", encoding="utf-8")
+    monkeypatch.delenv("chain_token", raising=False)
+
+    class ChainConfiguration(
+        Configuration,
+        options=Sources(
+            env_source(),
+            dotenv_source(file=dotenv_path),
+            json_source(file=json_path),
+        ),
+    ):
+        token: str = setting(name="chain_token")
+        retries: int = setting(name="chain_retries", default=3)
+
+    with pytest.raises(AggregateLoadError) as info:
+        ChainConfiguration.load_configuration()
+
+    # the required member's error names the chain as a whole and lists
+    # every storage address the pass walked empty, one per line
+    (terminal,) = info.value.errors
+    assert str(terminal) == (
+        f"{TERM} 'token' of 'ChainConfiguration' is required: "
+        "no source of the chain provided a value\n"
+        "    - environment variable 'chain_token'\n"
+        f"    - environment variable 'chain_token' in the dotenv file {dotenv_path}\n"
+        f"    - key 'chain_token' in the JSON file {json_path}"
+    )
+    # the optional member of the same walk rides the abort as a miss,
+    # in the same one-address-per-line spelling
+    (miss,) = info.value.misses
+    assert str(miss) == (
+        f"{TERM} 'retries' of 'ChainConfiguration': "
+        "no source of the chain provided a value\n"
+        "    - environment variable 'chain_retries'\n"
+        f"    - environment variable 'chain_retries' in the dotenv file {dotenv_path}\n"
+        f"    - key 'chain_retries' in the JSON file {json_path}"
+    )
+
+
 def test_writing_a_member_names_the_read_only_contract(tmp_path):
     klass = make_class(JSON_BACKEND, tmp_path / "read-only.json")
 
@@ -787,6 +842,7 @@ KNOWN_PLUGIN_MODULES = {
     "json_dynamic_settings": None,  # reads the writer's group, no attribute of its own
     "json_settings": "json",
     "mapping_source": None,  # a link with no attribute type of its own
+    "pydantic": None,  # a link with no attribute type of its own
     "toml_dynamic_settings": None,  # reads the writer's group, no attribute of its own
     "toml_settings": "toml",
     "yaml_dynamic_settings": None,  # reads the writer's group, no attribute of its own

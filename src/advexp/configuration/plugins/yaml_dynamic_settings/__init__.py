@@ -41,9 +41,12 @@ sorted(dashboard)  # the entry names, the class metadata order first
 dashboard.to_dict()  # the snapshot
 ```
 
-The collection is read-only: every write (saving, deleting, setting a
-value, or changing the setting metadata) is refused with a ``TypeError``,
-the same guard that this package applies to its members. The writing side
+The collection is read-only: every write (saving, deleting, or setting a
+value) is refused with a ``TypeError``, the same guard that this package
+applies to its members. The metadata of the entries is the reading
+collection's own runtime channel: it works as on the writing side, the
+writer's own annotations never cross the file, and the next
+``load_configuration()`` clears it with the rebuild. The writing side
 of the entries is the dynamic plugin of the settings package; this package
 reads what that plugin stored.
 
@@ -90,8 +93,8 @@ from advexp.configuration.plugins.yaml_settings.dynamic_configuration import (
 __all__ = [
     "YAMLDynamicSettingsConfiguration",
     "YAMLDynamicSettingsPlugin",
-    "YAMLSetting",
     "YAMLSettingsPlugin",
+    "YAMLSetting",
     "yaml_setting",
     "yaml_source",
 ]

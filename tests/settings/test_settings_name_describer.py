@@ -39,13 +39,17 @@ from advexp.settings.plugin_api import (
     ISourceDescriber,
 )
 from advexp.settings.plugins.environment import NameCase
-from advexp.settings.plugins.environment.dotenv import dotenv_setting, dotenv_source
-from advexp.settings.plugins.environment.variables import env_source, environment_variable_setting
+from advexp.settings.plugins.environment.dotenv import dotenv_source
+from advexp.settings.plugins.environment.variables import env_source
 from advexp.settings.plugins.json_settings import (
     JSONSettingsConfiguration,
-    json_setting,
 )
 from advexp.settings.plugins.json_settings.serializer import JSONSettingsSerializer
+from advexp.settings_base.dotenv_setting import dotenv_setting
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
+from advexp.settings_base.json_setting import (
+    json_setting,
+)
 
 _PLUGINS_PREFIX = "advexp.settings.plugins."
 

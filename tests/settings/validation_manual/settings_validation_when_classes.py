@@ -12,7 +12,8 @@ of the condition.
 from settings_validation_storage_paths import STORAGE_DIR
 
 from advexp.settings import Settings
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 WHEN_OFF_JSON_FILE = STORAGE_DIR / "when-off.json"
 WHEN_ON_JSON_FILE = STORAGE_DIR / "when-on.json"

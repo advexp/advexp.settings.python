@@ -58,10 +58,17 @@ from advexp.configuration._internal.configuration_attribute import Configuration
 from advexp.configuration._internal.configuration_meta import ConfigurationMeta
 from advexp.configuration._internal.package_name import PACKAGE_NAME
 from advexp.settings_base.context import SettingsContext
+from advexp.settings_base.getter import SettingRef, resolve_setting_name
 from advexp.settings_base.instance_values import INSTANCE_VALUES_ATTR, instance_values
 from advexp.settings_base.member_load_error import MemberLoadError
+from advexp.settings_base.no_default import NO_DEFAULT
+from advexp.settings_base.plugin_interface import PluginT
 from advexp.settings_base.setting_member import SettingMember
-from advexp.settings_base.settings_base_plugin import PluginT
+from advexp.settings_base.snapshot_missing import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    validate_missing_mode,
+)
 
 _T = TypeVar("_T", bound="Configuration")
 
@@ -234,6 +241,40 @@ class Configuration(metaclass=ConfigurationMeta):
         """
         return pipeline.load_configuration(cls.__settings_context__, overrides)
 
+    # -- single-member reads --------------------------------------------------
+    # Every ``setting_name`` below is a ``SettingRef`` — the member's name, or
+    # a getter lambda that selects the member: ``contains_member(lambda m:
+    # m.port)``. The lambda is inspected, never called.
+
+    @classmethod
+    def contains_member(cls, setting_name: SettingRef) -> bool:
+        """Return whether the class's source chain holds a value for the member.
+
+        ``setting_name`` is the member's name or a getter lambda selecting it:
+        ``contains_member(lambda m: m.port)``.
+
+        The chain is walked the way a load walks it, and the first link that
+        holds a value answers ``True``. A member declared through a family's
+        factory is asked only at the links of that family, a plain member at
+        every link of the chain. A chain where no link holds a value answers
+        ``False``; a member of a sourceless family answers ``False`` too,
+        because no source stores it.
+
+        The probe asks the sources alone: no values are loaded, and the state
+        of the class stands as it was. Only presence is checked: the stored
+        value is not converted and no constraint runs, so a member whose
+        stored value would fail a load still answers ``True``. The addresses
+        are the same ones a load reads, so aliases and ``path=`` spellings
+        count.
+
+        The probe has no lenient answer, because it asks a question. A broken
+        source is the caller's error to see: a plain storage error leaves as
+        is, and a user-facing one is raised unwrapped, as the inner exception.
+        """
+        return pipeline.contains_member(
+            cls.__settings_context__, resolve_setting_name(setting_name)
+        )
+
     # -- snapshot (in-memory) -------------------------------------------------
     #
     # The configuration class is the singleton storage, so a "copy" must be
@@ -244,7 +285,7 @@ class Configuration(metaclass=ConfigurationMeta):
     # load_configuration again.
 
     @classmethod
-    def to_dict(cls) -> Mapping[str, Any]:
+    def to_dict(cls, missing: str = MISSING_RAISE) -> Mapping[str, Any]:
         """Return a frozen snapshot of all declared members, keyed by member name.
 
         The mapping is read-only (a ``MappingProxyType``): item assignment and
@@ -260,11 +301,26 @@ class Configuration(metaclass=ConfigurationMeta):
         snapshot = AppConfig.to_dict()
         ```
 
+        The ``missing=`` mode says what a required member without a value
+        becomes instead of failing the snapshot: ``missing=MISSING_NONE``
+        exports it as ``None``, keeping every member name in the mapping, and
+        ``missing=MISSING_SKIP`` leaves it out.
         """
+        validate_missing_mode(missing)
         with cls.__settings_context__.lock:
-            return MappingProxyType(
-                {name: copy.deepcopy(getattr(cls, name)) for name in cls.__settings_members__}
-            )
+            values: Dict[str, Any] = {}
+            for name in cls.__settings_members__:
+                try:
+                    value = getattr(cls, name)
+                except MemberLoadError:
+                    if missing == MISSING_NONE:
+                        values[name] = None
+                    elif missing == MISSING_RAISE:
+                        raise
+                    # MISSING_SKIP: the member stays out of the snapshot
+                else:
+                    values[name] = copy.deepcopy(value)
+            return MappingProxyType(values)
 
     @classmethod
     def to_object(cls: Type[_T]) -> _T:
@@ -309,3 +365,244 @@ class Configuration(metaclass=ConfigurationMeta):
     def get_plugin(cls, plugin_class: Type[PluginT]) -> PluginT:
         """Return the plugin instance bound to this configuration class (cached)."""
         return cls.__settings_context__.get_plugin(plugin_class)
+
+    # -- metadata -------------------------------------------------------------
+    # The metadata channel of the class statement: ``metadata=`` on the
+    # members, ``class_metadata`` on the class. The read-only contract covers
+    # the values and the sources; metadata is a separate channel, and the
+    # methods below are its runtime layer. A load does not reset them, and
+    # writing them never reaches any source. In the setting-metadata
+    # operations, ``setting_name`` is a ``SettingRef`` — the member's name or
+    # a getter lambda for it.
+
+    @classmethod
+    def set_setting_metadata(
+        cls, setting_name: SettingRef, metadata_name: str, metadata_value: Any
+    ) -> None:
+        """Store metadata for a member of this configuration class, keyed by
+        member name.
+
+        ``setting_name`` is the member's name in the class body: the attribute's
+        ``name=`` spelling addresses the source, not the member, and is not
+        recognized here.
+
+        ``None`` is a value like any other; removing an entry is the job of
+        :meth:`delete_setting_metadata`. The entry is stored in the own storage of
+        this class, and the readers along the chain (this class and its
+        subclasses) resolve it live. A setting reference that the class does not
+        declare raises ``KeyError``; every setting-metadata operation applies the
+        same check. Values are deep-copied in both directions, so the stored
+        metadata and the objects of the caller never share mutable state.
+        """
+        cls.__settings_context__.set_setting_metadata(setting_name, metadata_name, metadata_value)
+
+    @classmethod
+    def get_setting_metadata(
+        cls, setting_name: SettingRef, metadata_name: str, default: Any = NO_DEFAULT
+    ) -> Any:
+        """Read one metadata entry of a member; the nearest entry wins.
+
+        A missing entry with no ``default=`` raises ``KeyError``, the way a
+        plain dictionary lookup does; ``default=`` serves the fallback instead.
+        A stored ``None`` is a value like any other and is served as it is:
+        ``contains_setting_metadata`` is what tells it from a missing entry.
+
+        ``setting_name`` is a :data:`~advexp.configuration.SettingRef` — the
+        member's name in the class body or a getter lambda for it; the
+        attribute's ``name=`` spelling addresses the source, not the member,
+        and is not recognized here.
+
+        The ChainMap rule applies along the inheritance chain of the member (from
+        this class down to the class that declared the member): the most derived
+        entry that holds the key wins, whichever side declared or wrote it.
+        """
+        return cls.__settings_context__.get_setting_metadata(setting_name, metadata_name, default)
+
+    @classmethod
+    def get_setting_all_metadata(cls, setting_name: SettingRef) -> Dict[str, Any]:
+        """Return every metadata entry of one member, keyed by metadata name.
+
+        This is the snapshot form of :meth:`get_setting_metadata`, and the way to
+        enumerate everything that the member carries along its chain. For each
+        key, the most derived entry wins. A runtime write adds keys on top of the
+        inherited ones without removing them. A member that is redeclared in a
+        subclass carries only the metadata of the redeclaration, because its chain
+        ends at the subclass. The dict and its values are deep-copied. A member
+        with nothing stored anywhere in its chain returns an empty dict.
+        """
+        return cls.__settings_context__.get_setting_all_metadata(setting_name)
+
+    @classmethod
+    def contains_setting_metadata(cls, setting_name: SettingRef, metadata_name: str) -> bool:
+        """Return whether a metadata entry of the member is stored under the name.
+
+        This is the unambiguous form of :meth:`get_setting_metadata`. ``get``
+        with ``default=None`` answers ``None`` both for a missing entry and for
+        a stored ``None``, while ``contains`` tells the two cases apart. It
+        checks the whole chain, with the same resolution that ``get`` applies.
+        """
+        return cls.__settings_context__.contains_setting_metadata(setting_name, metadata_name)
+
+    @classmethod
+    def delete_setting_metadata(cls, setting_name: SettingRef, metadata_name: str) -> bool:
+        """Remove the own entry of the class for a member; a missing entry is not an
+        error.
+
+        Only what this class itself declared or stored is removed. An entry of the
+        declaring class or of another class in the chain stays visible, in the same
+        way that deleting an attribute of a subclass makes the lookup fall back to
+        the attribute of the base class. The method returns whether the class had
+        an entry of its own to remove. An entry that was seeded by the ``metadata=``
+        declaration of the member is removed in the same way: the declaration seeds
+        the storage only once, and the entry does not come back.
+        """
+        return cls.__settings_context__.delete_setting_metadata(setting_name, metadata_name)
+
+    @classmethod
+    def delete_setting_all_metadata(cls, setting_name: SettingRef) -> None:
+        """Remove every own metadata entry of one member at once.
+
+        The per-entry form is :meth:`delete_setting_metadata`. Only the own
+        storage of this class is cleared for the member: entries that the
+        declaring class or another class of the chain holds stay visible, and
+        deleting on a subclass never touches the storages of its bases. A member
+        with no own entries is not an error. The entries that were seeded by the
+        ``metadata=`` declaration of the member are removed with the rest: the
+        declaration seeds the storage only once, and the entries do not come
+        back.
+        """
+        cls.__settings_context__.delete_setting_all_metadata(setting_name)
+
+    @classmethod
+    def set_class_metadata(cls, metadata_name: str, metadata_value: Any) -> None:
+        """Store class-level metadata on this configuration class; ``None`` is a
+        value like any other.
+
+        The entry is stored in the own storage of this class, and the readers along
+        the inheritance chain (this class and its subclasses) resolve it live. The
+        write reaches every subclass at once, while the base classes are never
+        touched. Removing an entry is the job of :meth:`delete_class_metadata`.
+        Values are deep-copied in both directions, so the stored metadata and the
+        objects of the caller never share mutable state.
+        """
+        cls.__settings_context__.set_class_metadata(metadata_name, metadata_value)
+
+    @classmethod
+    def get_class_metadata(cls, metadata_name: str, default: Any = NO_DEFAULT) -> Any:
+        """Read a class-level metadata entry; the nearest entry wins.
+
+        A missing entry with no ``default=`` raises ``KeyError``, the way a
+        plain dictionary lookup does; ``default=`` serves the fallback instead.
+        A stored ``None`` is a value like any other and is served as it is:
+        ``contains_class_metadata`` is what tells it from a missing entry.
+
+        The rule is the same as for class attribute lookup: the own storage of this
+        class first, then the storages of the base classes. Declarations and
+        runtime writes are resolved alike, and they are resolved live, so a runtime
+        write into a base class is what a subclass reads.
+        """
+        return cls.__settings_context__.get_class_metadata(metadata_name, default)
+
+    @classmethod
+    def get_class_all_metadata(cls) -> Dict[str, Any]:
+        """Return the class-level metadata entries of the open channel, keyed by
+        metadata name.
+
+        This is the snapshot form of :meth:`get_class_metadata`, and the way to
+        enumerate the metadata that the class carries: its own entries and those
+        of its chain, in one dict of deep-copied values. The listing carries the
+        open channel alone: the service records of the machinery — the keys of
+        the reserved ``__ADVEXP_SETTINGS_BASE_`` prefix and the per-class
+        entries of registered families, the source chain among them — stay in
+        the storage and remain addressable by their exact names, but the
+        listing hides them, so the keys a reader sees are the ones that
+        applications write. A class with nothing stored anywhere in its chain
+        returns an empty dict.
+        """
+        return cls.__settings_context__.get_class_all_metadata()
+
+    @classmethod
+    def contains_class_metadata(cls, metadata_name: str) -> bool:
+        """Return whether a class-level metadata entry is stored under the name.
+
+        This is the unambiguous form of :meth:`get_class_metadata`. ``get`` with
+        ``default=None`` answers ``None`` both for a missing entry and for a
+        stored ``None``, while ``contains`` tells the two cases apart. It checks
+        the whole inheritance chain, with the same resolution that ``get``
+        applies.
+        """
+        return cls.__settings_context__.contains_class_metadata(metadata_name)
+
+    @classmethod
+    def delete_class_metadata(cls, metadata_name: str) -> bool:
+        """Remove the own class-level metadata entry of the configuration class; a
+        missing entry is not an error.
+
+        Only what this class itself declared or stored is removed. An entry of an
+        ancestor stays visible, in the same way that deleting an attribute of a
+        subclass makes the lookup fall back to the attribute of the base class.
+        The method returns whether the class had an entry of its own to remove.
+        An entry that was seeded by the declaration in the class body is removed
+        in the same way: the declaration seeds the storage only once, and the
+        entry does not come back.
+        """
+        return cls.__settings_context__.delete_class_metadata(metadata_name)
+
+    @classmethod
+    def delete_class_all_metadata(cls) -> None:
+        """Remove every own class-level metadata entry of the configuration class.
+
+        Only the own storage of the class is cleared. The entries of the ancestors
+        stay visible to the readers of the chain: clearing a subclass does not
+        clear its base classes. The entries that were seeded by the declaration
+        in the class body are own entries of the class, and they are removed
+        with the rest. The service records that the listing of
+        :meth:`get_class_all_metadata` hides are own entries too, and they go
+        with the rest.
+        """
+        cls.__settings_context__.delete_class_all_metadata()
+
+    @classmethod
+    def reset_setting_all_metadata(cls, setting_name: SettingRef) -> None:
+        """Restore the metadata of one member to its declared state.
+
+        The ``metadata=`` declaration is the state the own storage of this class
+        started from: entries added at runtime are dropped, and declared entries
+        that were deleted or overridden at runtime come back. Only the own
+        storage of this class is rewritten: a member whose own bucket holds
+        nothing but runtime writes reads the declaration of its declarer again,
+        and the storages of the base classes never change. The restored state is
+        the snapshot taken when the class was created, so a later change to the
+        declared mapping never reaches the reset. In the read-only class the
+        reset touches the metadata channel alone: no source learns about it.
+        ``setting_name`` is the member's name or a getter lambda for it.
+        """
+        cls.__settings_context__.reset_setting_all_metadata(setting_name)
+
+    @classmethod
+    def reset_all_settings_metadata(cls) -> None:
+        """Restore the metadata of every member to its declared state.
+
+        The same restoration that :meth:`reset_setting_all_metadata` applies to
+        one member, applied to every bucket of the own member storage of this
+        class. The own storage alone is rewritten; the storages of the base
+        classes never change.
+        """
+        cls.__settings_context__.reset_all_settings_metadata()
+
+    @classmethod
+    def reset_class_all_metadata(cls) -> None:
+        """Restore the class-level metadata to the declared state of the
+        configuration class.
+
+        The storage returns to the state of the end of the ``class`` statement:
+        entries added at runtime are dropped, and declared entries that were
+        deleted or overridden at runtime come back. The source chain that the
+        machinery seeded with the declaration is part of the declared state, and
+        it returns with the rest: a clear that took it
+        (:meth:`delete_class_all_metadata`) is undone. The restored state is the
+        snapshot taken when the class was created, so a later change to the
+        declared mapping never reaches the reset. The own storage of this class
+        alone is rewritten; the entries of the base classes never change.
+        """
+        cls.__settings_context__.reset_class_all_metadata()

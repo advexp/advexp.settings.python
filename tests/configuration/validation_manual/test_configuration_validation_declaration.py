@@ -25,9 +25,9 @@ through the internals of the library.
 
 import pytest
 
-from advexp.configuration import Configuration, constant_setting
+from advexp.configuration import Configuration, sourceless_setting
 from advexp.configuration.plugin_api import NO_DEFAULT
-from advexp.configuration.plugins.json_settings import json_setting
+from advexp.settings_base.json_setting import json_setting
 
 
 def test_bad_default_fails_the_class_statement():
@@ -94,11 +94,11 @@ def test_bad_regex_fails_the_class_statement():
 def test_orphan_member_reference_fails_the_class_statement():
     """A bound must reference a member of the same class: an attribute
     object no member of the class carries is refused, named."""
-    orphan = constant_setting(default=1)  # an attribute bound to no member
+    orphan = sourceless_setting(default=1)  # an attribute bound to no member
     with pytest.raises(TypeError) as info:
 
         class OrphanConfiguration(Configuration):
-            value: int = constant_setting(default=2, ge=orphan)
+            value: int = sourceless_setting(default=2, ge=orphan)
 
     assert str(info.value) == (
         "OrphanConfiguration: the ge= of 'value' references an attribute that is not declared as "

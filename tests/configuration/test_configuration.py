@@ -27,6 +27,7 @@ from advexp.configuration.plugin_api import (
     NO_DEFAULT,
     AttributeSerializerBinding,
     ConfigurationAttribute,
+    ExtensionBasePlugin,
     ISettingAttribute,
     LibraryConfiguration,
     SettingsBasePlugin,
@@ -37,9 +38,12 @@ from advexp.configuration.plugin_api import (
 from advexp.configuration.plugins.environment.variables import (
     EnvironmentVariablesPlugin,
     env_source,
+)
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.environment_variable_setting import (
     environment_variable_setting,
 )
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.settings_base.json_setting import json_setting
 
 PLUGIN_MODULES = [
     "advexp.configuration.plugins.json_settings",
@@ -702,7 +706,12 @@ def test_contract_only_attribute_words_errors_with_the_class_term():
     # the term is the class's declaration alone: an attribute implementing
     # the interface without any package base inherits the class's package
     # vocabulary the same way a bundled one does
-    class ContractConfig(Configuration):
+    class ContractConfig(
+        Configuration,
+        options=env_source(name_prefix="TEST_ACF"),
+    ):
+        # a contract-only member obeys the neutral-member rule: the class
+        # must declare the chain that serves it
         mode: str = InterfaceMember(name="TEST_ACF_MODE")
 
     with pytest.raises(MemberLoadError) as info:
@@ -891,6 +900,33 @@ def test_get_plugin_bound_to_class():
     assert plugin.context.settings_class is EnvConfig
 
 
+# -- extension plugins ------------------------------------------------------
+
+
+class ConfigurationExtension(ExtensionBasePlugin):
+    """The extension twin of the get_plugin test: reads the class through the context."""
+
+    @property
+    def plugin_name(self) -> str:
+        return "configuration-extension"
+
+    def settings_class_name(self) -> str:
+        """A plugin-specific operation served by the bound context."""
+        return self.context.settings_class.__name__
+
+
+LibraryConfiguration.register_settings_plugin(ConfigurationExtension)
+
+
+def test_get_plugin_serves_extension_plugins():
+    # the second plugin kind registers no storage and reaches the class
+    # through the same get_plugin funnel
+    plugin = EnvConfig.get_plugin(ConfigurationExtension)
+    assert plugin.plugin_name == "configuration-extension"
+    assert plugin.context is EnvConfig.__settings_context__
+    assert plugin.settings_class_name() == "EnvConfig"
+
+
 # ---------------------------------------------------------------------------
 # rules across members: references, when= and the __validate__ hook, in the
 # package's own error shape — one entry per member of the load abort
@@ -1062,13 +1098,13 @@ def test_the_core_import_is_self_sufficient():
         """
         from advexp.configuration import (
             Configuration,
-            constant_setting,
+            sourceless_setting,
         )
 
 
         class Constants(Configuration):
-            url: str = constant_setting(default="https://api.example")
-            port: int = constant_setting(default=8080, le=65535)
+            url: str = sourceless_setting(default="https://api.example")
+            port: int = sourceless_setting(default=8080, le=65535)
 
 
         # the declared defaults, read-only, with the package's own rule:
@@ -1085,7 +1121,7 @@ def test_the_core_import_is_self_sufficient():
 
         try:
             class Required(Configuration):
-                must: str = constant_setting()
+                must: str = sourceless_setting()
             raise SystemExit("the constant without a value got declared")
         except TypeError:
             pass

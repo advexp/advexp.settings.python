@@ -43,7 +43,8 @@ from advexp.settings.plugin_api import (
     UserFacingError,
 )
 from advexp.settings.plugins.environment import NameCase
-from advexp.settings.plugins.environment.variables import env_source, environment_variable_setting
+from advexp.settings.plugins.environment.variables import env_source
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 
 
 class ExplodingSetting(SettingsAttribute):
@@ -129,7 +130,7 @@ def corrupt_setting(**kwargs: Any) -> Any:
 
 class SoftSettings(Settings):
     mode: str = environment_variable_setting(name="TEST_ASV_MODE", default="default-mode")
-    plain: str = environment_variable_setting(name="TEST_ASV_PLAIN")  # NO_DEFAULT → None
+    plain: Optional[str] = environment_variable_setting(name="TEST_ASV_PLAIN", default=None)
     limit: int = environment_variable_setting(name="TEST_ASV_LIMIT", default=7)
     port: int = environment_variable_setting(name="TEST_ASV_PORT", default=8080, ge=1)
 
@@ -144,7 +145,7 @@ def clean_env(monkeypatch):
 def test_missing_value_serves_default():
     report = SoftSettings.load_settings()
     assert SoftSettings.mode == "default-mode"
-    assert SoftSettings.plain is None  # no exception: NO_DEFAULT means None stands in
+    assert SoftSettings.plain is None  # no exception: None is the declared default
     # a plain miss is the default's normal way of happening: no entry
     assert report == ()
 

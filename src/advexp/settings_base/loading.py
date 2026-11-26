@@ -87,6 +87,7 @@ from advexp.settings_base.cross_validation import (
     collect_settings_problems,
     rule_participants,
 )
+from advexp.settings_base.family_boundaries import settings_family
 from advexp.settings_base.library_configuration import LibraryConfiguration, logger_for, member_term
 from advexp.settings_base.member_load_error import MemberLoadError
 from advexp.settings_base.missing_value_error import MissingValueError
@@ -123,7 +124,7 @@ def unique_serializers(
 
     A layered class reads the links of the chain first, in the order of the
     chain. The members that the chain does not serve (a memory member, for
-    example) add their own serializers after them. A constant member adds
+    example) add their own serializers after them. A sourceless member adds
     nothing, because its value never asks a source. A settings class that is
     bound through the source seats is read in the same way, over its anchors. A
     member of an unbound family keeps its own serializer, as the pass has always
@@ -137,8 +138,6 @@ def unique_serializers(
         links = LinkSerializers(context)
     serializers: List[ISettingsSerializer] = []
     for member in context.settings_class.__settings_members__.values():
-        if getattr(type(member.attribute), "SOURCELESS", False):
-            continue
         for serializer in links.member_serializers(cache, member):
             if serializer not in serializers:
                 serializers.append(serializer)
@@ -168,7 +167,9 @@ class LinkSerializers:
 
     def __init__(self, context: SettingsContext) -> None:
         self._context = context
-        self._chain: Optional[Sources] = context.get_class_metadata(SOURCE_CHAIN_METADATA)
+        self._chain: Optional[Sources] = context.get_class_metadata(
+            SOURCE_CHAIN_METADATA, default=None
+        )
         # the settings-side spelling: no chain, the source seats instead
         self._anchors: Tuple[SourceLink, ...] = (
             () if self._chain is not None else declared_source_links(context)
@@ -208,15 +209,23 @@ class LinkSerializers:
     def member_serializers(
         self, cache: SerializerCache, member: SettingMember
     ) -> List[ISettingsSerializer]:
-        """The serializers one member reads, in the order it reads them."""
+        """The serializers one member reads, in the order it reads them.
+
+        A sourceless member reads none: the answer is empty, and the write
+        passes of the writable distribution spell their own handling of the
+        member over it.
+        """
         attribute = member.attribute
+        if getattr(type(attribute), "SOURCELESS", False):
+            return []
         declared = self.links()
         if not declared:
             return [cache.get_for_attribute(attribute)]
         family_links = [link for link in declared if link.serves(attribute)]
         if family_links:
             return [self.serializer_for(link, type(attribute)) for link in family_links]
-        if LibraryConfiguration._get_serializer_factory(type(attribute)) is not None:
+        family = settings_family(self._context.settings_class)
+        if LibraryConfiguration._get_serializer_factory(type(attribute), family) is not None:
             # a member of its own serializer, no declared link serves it
             return [cache.get_for_attribute(attribute)]
         # a neutral member: every declared link, in their order
@@ -229,7 +238,7 @@ class _OverrideSource(ISettingsSerializer, ISettingNameDescriber, ISourceDescrib
     It holds the values that one :meth:`load_configuration` call carried, keyed
     by member name. The pass reads it before any link, so an override outranks
     every source. The keys of the call that name no member, or that name a
-    constant member (which no override reaches), were dropped with a debug record
+    sourceless member (which no override reaches), were dropped with a debug record
     when the layer was built.
     """
 
@@ -290,7 +299,7 @@ def _override_source(
     The layer keeps only the values of the members that the call addressed. A
     key that names no member (for example, a ``model_dump()`` of another model
     may carry keys that this class never declared) and a key that names a
-    constant member (which no override reaches) are dropped, with one debug
+    sourceless member (which no override reaches) are dropped, with one debug
     record for each. A foreign dictionary therefore never makes the load fail.
     The values are deep-copied: the pass owns its layer, and the caller owns the
     dictionary that it passed in.
@@ -314,7 +323,7 @@ def _override_source(
             continue
         if getattr(type(member.attribute), "SOURCELESS", False):
             context.logger.debug(
-                "the overrides entry %r refers to the constant member of '%s', "
+                "the overrides entry %r refers to the sourceless member of '%s', "
                 "which cannot be overridden; ignoring it",
                 key,
                 context.settings_class.__name__,
@@ -338,19 +347,13 @@ def notify_end(serializers: List[ISettingsSerializer], mode: str) -> None:
             serializer.on_end_serializer_action()
 
 
-def member_where(
-    settings_class: SettingsMeta,
+def member_addresses(
     member: SettingMember,
     serializers: List[ISettingsSerializer],
     full_name: str,
-) -> str:
-    """Return the place of the member in load diagnostics: name, storage
-    addresses, and class.
-
-    One serializer names one address, as the non-layered pass has always worded
-    it. For a chain, the text names the address of each link in the order in
-    which the pass read them, joined by semicolons, so the reader of a miss
-    record sees every address that the pass checked.
+) -> List[str]:
+    """Return the storage address of the member in every serializer, in the
+    order in which the pass reads the links.
 
     The address is the own wording of the serializer when it can name the
     address (``environment variable 'APP_MODE'``). Otherwise, it is the storage
@@ -359,7 +362,7 @@ def member_where(
     'port' in the JSON file /etc/app.json``). A storage with no file keeps the
     address as it is.
     """
-    parts: List[str] = []
+    addresses: List[str] = []
     for serializer in serializers:
         described: Optional[str] = None
         if isinstance(serializer, ISettingNameDescriber):
@@ -368,8 +371,38 @@ def member_where(
         designation = _source_of(serializer, member.attribute)
         if designation is not None and designation[1] is not None:
             shown = f"{shown} in {designation[0]} {designation[1]}"
-        parts.append(shown)
-    joined = "; ".join(parts) if parts else full_name
+        addresses.append(shown)
+    return addresses
+
+
+def member_head(settings_class: SettingsMeta, member: SettingMember) -> str:
+    """Return the member line of load diagnostics without the storage
+    addresses: the opening of an entry that lists its addresses one per line
+    beneath the message.
+    """
+    term = member_term(settings_class)
+    return f"{term} '{member.name}' of '{settings_class.__name__}'"
+
+
+def member_where(
+    settings_class: SettingsMeta,
+    member: SettingMember,
+    serializers: List[ISettingsSerializer],
+    full_name: str,
+) -> str:
+    """Return the place of the member in load diagnostics: name, storage
+    addresses, and class, in the single-line spelling.
+
+    One serializer names one address, as the non-layered pass has always worded
+    it. For a chain, the text names the address of each link in the order in
+    which the pass read them, joined by semicolons — the spelling of the log
+    records and of the entries that report one link of the chain. A miss that
+    walked the whole chain empty does not use this spelling: its entry lists
+    one address per line instead (:func:`load_error_entry` and its
+    ``addresses``).
+    """
+    addresses = member_addresses(member, serializers, full_name)
+    joined = "; ".join(addresses) if addresses else full_name
     term = member_term(settings_class)
     return f"{term} '{member.name}' ({joined}) of '{settings_class.__name__}'"
 
@@ -403,7 +436,7 @@ def load_settings_class(
 
     ``overrides``, when the caller passes a mapping, is a layer above the whole
     chain. Its values go through the same conversion and constraints as the
-    values of a link. Keys that name no member (or a constant member) are
+    values of a link. Keys that name no member (or a sourceless member) are
     dropped, with a debug record, so a foreign dictionary never makes the load
     fail.
     """
@@ -463,21 +496,38 @@ def load_settings_class(
             context.close_parameter_pass()
 
 
+def _address_lines(addresses: List[str]) -> str:
+    """Return the storage addresses one per line, indented under the message
+    that lists them.
+
+    Four spaces sit the lines beneath the entry bullets of a load abort
+    summary and beneath a message printed on its own alike.
+    """
+    return "\n".join(f"    - {address}" for address in addresses)
+
+
 def load_error_entry(
     error_class: Type[MemberLoadError],
     where: str,
     required: bool,
     cause: str,
     cause_exc: Optional[BaseException] = None,
+    addresses: Optional[List[str]] = None,
 ) -> MemberLoadError:
     """Return the load error of one member, in the spelling of its channel.
 
     This is the one builder behind the report entries of the family. The class
     pass collects what it builds, and the single-setting load returns the entry
     of its one member, so both forms report a fallback in the same spelling.
+
+    ``addresses``, for a miss that walked a whole chain of storages empty,
+    lists one storage address per line under the message.
     """
     channel = "is required" if required else "fell back to its default"
-    error = error_class(f"{where} {channel}: {cause}")
+    text = f"{where} {channel}: {cause}"
+    if addresses is not None:
+        text = f"{text}\n{_address_lines(addresses)}"
+    error = error_class(text)
     if cause_exc is not None:
         error.__cause__ = cause_exc
     return error
@@ -588,7 +638,7 @@ def _load_member(
     attribute = member.attribute
     required = attribute.default is REQUIRED
     if getattr(type(attribute), "SOURCELESS", False):
-        # a constant member: its declared default alone, immune to every
+        # a sourceless member: its declared default alone, immune to every
         # source and to the overrides — the load pass writes nothing the
         # declaration did not already say
         state[member.name] = member.descriptor.resolved_default(settings_class)
@@ -649,15 +699,24 @@ def _load_member(
 
     if raw_value is NOT_FOUND:
         # every seat came up empty. One seat names its source the way it
-        # always did; several name the chain as a whole — the addresses
-        # sit in the message's member line, each beside its source
+        # always did; several name the chain as a whole — the entry lists
+        # one storage address per line under the message, every link the
+        # pass walked empty
         if len(serializers) == 1:
             source = _source_text(_source_of(serializers[0], attribute), where)
             miss_cause = _miss_cause(source)
+            miss_where = where
+            addresses: Optional[List[str]] = None
         else:
             miss_cause = "no source of the chain provided a value"
+            miss_where = member_head(settings_class, member)
+            addresses = member_addresses(member, serializers, full_name)
         if required:
-            fatal.append(load_error_entry(MissingValueError, where, required, miss_cause))
+            fatal.append(
+                load_error_entry(
+                    MissingValueError, miss_where, required, miss_cause, addresses=addresses
+                )
+            )
             return
         # a miss on a member with a default is that default's normal way
         # of happening: served silently at the usual levels and out of the
@@ -668,7 +727,10 @@ def _load_member(
         # optional members stood at their defaults — what a storage
         # matching none of the class's keys looks like
         log.debug("%s: %s; using the default value", where, miss_cause)
-        misses.append(MissingValueError(f"{where}: {miss_cause}"))
+        miss_text = f"{miss_where}: {miss_cause}"
+        if addresses is not None:
+            miss_text = f"{miss_text}\n{_address_lines(addresses)}"
+        misses.append(MissingValueError(miss_text))
         value = member.descriptor.resolved_default(settings_class)
     else:
         try:

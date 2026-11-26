@@ -16,14 +16,16 @@ from ruamel.yaml import YAML
 
 from advexp.settings import LibraryConfiguration, Settings
 from advexp.settings.plugins.yaml_settings import (
-    YAMLSetting,
     YAMLSettingsConfiguration,
     YAMLSettingsPlugin,
-    yaml_setting,
     yaml_source,
 )
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.sources import YAML_SOURCE_METADATA
+from advexp.settings_base.yaml_setting import (
+    YAMLSetting,
+    yaml_setting,
+)
 
 
 def _load(path: Path) -> Any:
@@ -78,7 +80,7 @@ def reset_values():
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(YAMLSetting) is not None
+    assert LibraryConfiguration._get_serializer_factory(YAMLSetting, "advexp.settings") is not None
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
     assert YAMLSettingsPlugin in LibraryConfiguration.registered_plugin_classes()
 

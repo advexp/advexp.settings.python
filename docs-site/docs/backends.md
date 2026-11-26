@@ -74,12 +74,13 @@ backend of your own can support aliases through the attribute contract
 
 ## Members without storage
 
-`non_storage_setting(...)` is provided by the core package, directly in
+`sourceless_setting(...)` is provided by the core package, directly in
 `advexp.settings`. It declares a member that no storage ever serves:
 
 - `default=` is required.
 - The value is either the declared default or the last assigned value.
-- A load resets the member to its declared default.
+- A load, a delete, or a reset returns the member to its
+  declared default.
 - Saving and deleting skip the member.
 - Bulk updates, snapshots, constraints, and validation treat it like any
   other member.
@@ -89,19 +90,19 @@ import advexp.settings as adv_settings
 
 
 class Limits(adv_settings.Settings):
-    retries: int = adv_settings.non_storage_setting(default=3, ge=0)
+    retries: int = adv_settings.sourceless_setting(default=3, ge=0)
 ```
 
 An annotation wrapped in `typing.ClassVar` declares no member at all: the
 class does not treat the name as a member, no storage ever sees it, and
 `to_dict()` does not include it. `ClassVar` is the standard Python way to
-mark a value that simply lives on the class. Use `non_storage_setting(...)`
+mark a value that simply lives on the class. Use `sourceless_setting(...)`
 for values that should behave as members.
 
-The read-only counterpart has its own version of this concept:
-`advexp.configuration` provides `constant_setting(default=...)`. It declares
-a member that neither the sources nor the load overrides can change, so its
-value is always the declared one, on every load. See
+The read-only package spells the same member with the same factory:
+`advexp.configuration` re-exports `sourceless_setting(default=...)`. On a
+configuration class no source is asked for the member either, and the load
+overrides skip it, so its value is always the declared one. See
 [Configuration: Members that do not use the source chain](configuration/getting-started.md#members-that-do-not-use-the-source-chain).
 
 ## Environment variables

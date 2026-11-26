@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advexp-settings"
-version = "0.1.0"
+version = "0.2.0"
 description = "Application settings for Python"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -41,7 +41,7 @@ classifiers = [
 # the family's base machinery: advexp.settings_base ships separately and is
 # imported by the facades; the pin is lockstep with the monorepo release of
 # the base — loosen together at the first stable release
-dependencies = ["advexp-settings-base==0.1.0"]
+dependencies = ["advexp-settings-base==0.2.0"]
 
 [project.optional-dependencies]
 # the dotenv file backend rides python-dotenv

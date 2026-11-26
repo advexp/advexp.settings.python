@@ -40,22 +40,27 @@ runtime, but type checkers report a type mismatch for it (see
 """
 
 from advexp.settings.plugins.toml_settings.configuration import TOMLSettingsConfiguration
-from advexp.settings.plugins.toml_settings.options import toml_file, toml_source
+from advexp.settings.plugins.toml_settings.options import (
+    toml_dynamic_file,
+    toml_file,
+    toml_source,
+)
 from advexp.settings.plugins.toml_settings.plugin import TOMLSettingsPlugin
 from advexp.settings.plugins.toml_settings.serializer import TOMLSettingsSerializer
-from advexp.settings.plugins.toml_settings.setting import TOMLSetting, toml_setting
 from advexp.settings_base.toml_file import TOML_FILE_METADATA
 from advexp.settings_base.toml_options import NAME_PATTERN, TOML_METADATA_OPTIONS
+from advexp.settings_base.toml_setting import TOMLSetting, toml_setting
 
 __all__ = [
     "NAME_PATTERN",
-    "TOMLSetting",
     "TOMLSettingsConfiguration",
     "TOMLSettingsPlugin",
     "TOMLSettingsSerializer",
     "TOML_METADATA_OPTIONS",
     "TOML_FILE_METADATA",
+    "toml_dynamic_file",
     "toml_file",
+    "TOMLSetting",
     "toml_setting",
     "toml_source",
 ]

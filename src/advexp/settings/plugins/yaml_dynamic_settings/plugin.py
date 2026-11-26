@@ -14,6 +14,7 @@ import os
 from typing import Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     DocumentDynamicSettingsPlugin,
     DynamicSettingAttribute,
@@ -23,15 +24,15 @@ from advexp.settings.plugins.yaml_settings.dynamic_configuration import (
     YAMLDynamicSettingsConfiguration,
 )
 from advexp.settings.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.settings.plugins.yaml_settings.setting import YAMLSetting
 from advexp.settings_base.yaml_file import YAML_DYNAMIC_FILE_METADATA
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 class YAMLDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
     """Plugin object for dynamic settings in the YAML settings file.
 
     The namespaced pin names the backend. Dynamic entries use the same
-    serializer and the same file as the ``YAMLSetting`` members of the class,
+    serializer and the same file as the ``yaml_setting`` members of the class,
     so one document holds the static and the runtime settings of the class side
     by side: the static entries under their full names, and the dynamic ones in
     the dedicated section of the document (see
@@ -40,15 +41,19 @@ class YAMLDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
     inherited here).
 
     The shared file is the default, not a rule. The ``yaml_source(dynamic_file=...)``
-    binding of the class (class metadata; the nearest entry along the class
-    chain wins) or the module-wide ``YAMLDynamicSettingsConfiguration.file_path``
-    moves the dynamic entries to a file of their own, separate from the static
-    one.
+    binding of the class, the ``yaml_dynamic_file(...)`` seat of the same
+    family for a class whose binding is held by another family, or the
+    module-wide ``YAMLDynamicSettingsConfiguration.file_path`` moves the
+    dynamic entries to a file of their own, separate from the static one. The
+    first two are class metadata; the nearest entry along the class chain
+    wins.
 
     The pin is the own registry slot of the dynamic side: the binding ties it to
     ``YAMLSettingsSerializer`` here and never touches the registration of
     ``YAMLSetting`` by the static plugin.
     """
+
+    family = PACKAGE_NAME
 
     # the pin's own slot: the binding registered by the base setup() makes this
     # package self-sufficient — importing it alone is enough — and leaves the
@@ -82,7 +87,7 @@ class YAMLDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
         default applies. If the module default is also unset, the dynamic entries go
         into the static file. ``delete_class_metadata`` removes the binding again.
         """
-        return self.context.get_class_metadata(YAML_DYNAMIC_FILE_METADATA)
+        return self.context.get_class_metadata(YAML_DYNAMIC_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:

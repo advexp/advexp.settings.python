@@ -137,6 +137,26 @@ def unwrap_annotation(annotation: Any) -> Any:
     return _unwrap_optional(_unwrap_annotated(annotation))
 
 
+def allows_none(annotation: Any) -> bool:
+    """Whether ``None`` is one of the values of the annotated type.
+
+    ``None`` itself, ``Any``, and a union that lists ``None`` (the
+    ``Optional`` spelling) admit it; every other annotation does not, the
+    bare containers included. An ``Annotated`` wrapper is unwrapped first,
+    the same way as in :func:`correct_type`. The conversion itself accepts
+    a ``None`` for any annotation — ``None`` is a value a member may hold —
+    so this predicate is what a boundary that wants to tell the two cases
+    apart consults.
+    """
+    annotation = _unwrap_annotated(annotation)
+    if annotation is None or annotation is type(None) or annotation is Any:
+        return True
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or (_UnionType is not None and origin is _UnionType):
+        return any(arg is type(None) or arg is Any for arg in typing.get_args(annotation))
+    return False
+
+
 def _json_decode_if_possible(value: Any) -> Any:
     if not isinstance(value, (str, bytes, bytearray)):
         return value

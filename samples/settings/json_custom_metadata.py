@@ -103,7 +103,7 @@ class MyJSONSerializer(js.JSONSettingsSerializer):
         setting = self.attribute_of(attr, MyJSONSetting)
         if setting is None or setting.path is not None:
             return None
-        section = self.context.get_class_metadata("runtime_section")
+        section = self.context.get_class_metadata("runtime_section", default=None)
         return section if isinstance(section, str) and section else None
 
     def _obfuscates(self, attr: Optional[api.ISettingAttribute]) -> bool:
@@ -113,7 +113,7 @@ class MyJSONSerializer(js.JSONSettingsSerializer):
         member = None if attr is None else attr.bound_name
         if member is None:
             return False
-        return bool(self.context.get_setting_metadata(member, "obfuscate", False))
+        return bool(self.context.get_setting_metadata(member, "obfuscate", default=False))
 
     def _setting_segments(
         self, setting_name: str, attr: Optional[api.ISettingAttribute]

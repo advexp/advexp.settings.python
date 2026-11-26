@@ -8,7 +8,9 @@ Everything that a backend author needs ships in
 - behavior that is driven by member and class metadata;
 - a configuration holder with a process-wide parameter, which settings
   modules declare for themselves through ``for_this_module``;
-- a collection of dynamic settings.
+- a collection of dynamic settings;
+- an extension plugin — the second plugin kind: it registers no attribute
+  and no serializer, and adds its own operations to one settings class.
 
 The file then walks the backend through the pipeline. The application-side
 API (declaring and using settings) is shown in
@@ -213,7 +215,7 @@ class MemorySerializer(
         member = None if attr is None else attr.bound_name
         if member is None:
             return False
-        return bool(self.context.get_setting_metadata(member, "redact-on-save"))
+        return bool(self.context.get_setting_metadata(member, "redact-on-save", default=False))
 
     def _dynamic_redacts(self, setting_name: str) -> bool:
         # a dynamic entry carries no attr: its runtime mark lives in the
@@ -226,7 +228,7 @@ class MemorySerializer(
             return False
         plugin = context.get_plugin(MemoryDynamicSettingsPlugin)
         try:
-            return bool(plugin.get_setting_metadata(plain_name, "redact-on-save", False))
+            return bool(plugin.get_setting_metadata(plain_name, "redact-on-save", default=False))
         except KeyError:
             return False  # a name the collection does not hold: no mark
 
@@ -234,7 +236,7 @@ class MemorySerializer(
         # the backend's own class-metadata option: one switch for the whole
         # class, read through the context like any metadata; the registry
         # the validator registered in guards what lands there
-        options = self.context.get_class_metadata(MEMORY_OPTIONS_KEY) or {}
+        options = self.context.get_class_metadata(MEMORY_OPTIONS_KEY, default=None) or {}
         return bool(options.get(MEMORY_REDACT_EVERYTHING))
 
     def _redaction(self) -> str:
@@ -460,6 +462,44 @@ class MemoryDynamicSettingsPlugin(api.DynamicSettingsBasePlugin):
 adv_settings.LibraryConfiguration.register_settings_plugin(MemoryDynamicSettingsPlugin)
 
 # ---------------------------------------------------------------------------
+# An extension plugin: the second plugin kind — operations over one class,
+# with no attribute, no serializer and no storage
+# ---------------------------------------------------------------------------
+
+
+class MemoryReport(api.ExtensionBasePlugin):
+    """An extension adds its own operations to one settings class.
+
+    It registers no attribute and no serializer — a declared ``binding``
+    fails the ``class`` statement of an extension — so functionality that
+    serves one ecosystem (a bridge to another library's models, and
+    similar) rides a plugin instead of growing the settings class API.
+
+    The registration call is the same one a backend uses, and the class of
+    the ``get_plugin`` call is the one and only class the instance works
+    with. The bound context serves everything the base plugin context
+    does: the class, its metadata, and the other plugins of the class.
+    """
+
+    @property
+    def plugin_name(self) -> str:
+        return "InMemoryReport"
+
+    def storage_report(self) -> str:
+        """A plugin-specific operation: what the class declares and what the storage holds.
+
+        The context serves both halves: the class's own channels, and the
+        memory plugin of the same class, reached the same way user code
+        reaches it.
+        """
+        entries = len(self.context.get_class_all_metadata())
+        stored = len(self.context.get_plugin(MemoryPlugin).storage)
+        return f"{entries} metadata entries, {stored} stored keys"
+
+
+adv_settings.LibraryConfiguration.register_settings_plugin(MemoryReport)
+
+# ---------------------------------------------------------------------------
 # A settings class served by the backend, and the walkthrough
 # ---------------------------------------------------------------------------
 
@@ -646,6 +686,16 @@ def main() -> None:
     # the member-name string or a getter lambda
     plugin.context.set_setting_metadata(lambda s: s.mode, "ctx-mark", 7)
     print(f"ctx mark   = {plugin.context.get_setting_metadata(lambda s: s.mode, 'ctx-mark')!r}")
+
+    section("extension plugin: the second plugin kind")
+    # an extension registers only itself: no attribute, no serializer. The
+    # get_plugin call hands it the class, and its own API does the rest
+    memory_report = AppSettings.get_plugin(MemoryReport)
+    print(
+        f"extension  = {memory_report.plugin_name!r}, "
+        f"bound to {memory_report.context.settings_class.__name__}"
+    )
+    print(f"report     = {memory_report.storage_report()}")
 
     section("dynamic settings: runtime names through a plugin")
     # names that appear at runtime (user-added, plugin-provided) live in the

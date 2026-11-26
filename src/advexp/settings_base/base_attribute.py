@@ -97,7 +97,7 @@ class BaseAttribute(ISettingAttribute):
     SOURCELESS: ClassVar[bool] = False
     """Whether the member never reads a source of its own accord.
 
-    ``False`` everywhere but the constant members: an attribute that
+    ``False`` everywhere but the sourceless members: an attribute that
     spells ``True`` declares a member whose value is its declared
     default alone — the load pass serves it without asking any source,
     and the load overrides skip it. The load machinery reads this flag;
@@ -299,3 +299,24 @@ class BaseAttribute(ISettingAttribute):
         :attr:`constraint_member_rules`.
         """
         return self.__condition
+
+    def redirect_member_references(self, mapping: Mapping[int, "ISettingAttribute"]) -> None:
+        """The declaration pour's write: point the member rules and the
+        ``when=`` condition at the copies of the referenced attributes.
+
+        Only the pour of a declaration base calls this, after it copied the
+        declarations of the base into the namespace of the class that
+        inherits it. A reference that names a declaration of the base must
+        follow the copy, not the inert original: the copy is the member that
+        the inheriting class binds and validates. A reference that names
+        anything else stays as it is.
+        """
+        redirected = []
+        for rule in self.__member_rules:
+            target = mapping.get(id(rule.reference))
+            redirected.append(rule if target is None else rule._replace(reference=target))
+        self.__member_rules = tuple(redirected)
+        if self.__condition is not None:
+            target = mapping.get(id(self.__condition))
+            if target is not None:
+                self.__condition = target

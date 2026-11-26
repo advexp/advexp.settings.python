@@ -48,9 +48,6 @@ from advexp.settings import (
     Settings,
     SettingValidationError,
 )
-
-# noinspection PyProtectedMember
-from advexp.settings._internal.non_storage_setting import NonStorageSetting, non_storage_setting
 from advexp.settings.plugin_api import (
     NO_DEFAULT,
     NOT_FOUND,
@@ -65,7 +62,6 @@ from advexp.settings.plugin_api import (
 )
 from advexp.settings.plugins.environment.variables import (
     EnvironmentVariablesPlugin,
-    environment_variable_setting,
 )
 
 # noinspection PyProtectedMember
@@ -76,12 +72,19 @@ from advexp.settings_base.conversion import (
     to_toml_value,
     to_yaml_value,
 )
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
 
 # noinspection PyProtectedMember
 from advexp.settings_base.names import get_full_setting_name
 
 # noinspection PyProtectedMember
+from advexp.settings_base.setting import setting
+
+# noinspection PyProtectedMember
 from advexp.settings_base.setting_descriptor import SettingDescriptor
+from advexp.settings_base.sourceless_setting import sourceless_setting
 
 # ---------------------------------------------------------------------------
 # attributes & descriptor behavior
@@ -89,9 +92,9 @@ from advexp.settings_base.setting_descriptor import SettingDescriptor
 
 
 class SimpleSettings(Settings):
-    flag: bool = non_storage_setting(default=False)
-    text: str = non_storage_setting(default="fallback")
-    nothing: Optional[str] = non_storage_setting(default=None)
+    flag: bool = sourceless_setting(default=False)
+    text: str = sourceless_setting(default="fallback")
+    nothing: Optional[str] = sourceless_setting(default=None)
 
 
 def test_defaults_resolution():
@@ -205,7 +208,7 @@ def test_attribute_instances_do_not_share_contract_fields():
 
 def test_mutable_default_survives_in_place_mutation():
     class TagsSettings(Settings):
-        tags: List[str] = non_storage_setting(default=[])
+        tags: List[str] = sourceless_setting(default=[])
 
     TagsSettings.reset_settings()
     TagsSettings.tags.append("mutated")  # in-place change of the stored copy
@@ -216,7 +219,7 @@ def test_mutable_default_survives_in_place_mutation():
 
 def test_unset_mutable_default_read_returns_fresh_copy():
     class FreshTagsSettings(Settings):
-        tags: List[str] = non_storage_setting(default=[])
+        tags: List[str] = sourceless_setting(default=[])
 
     FreshTagsSettings.tags.append("mutated")  # append to an unset member's copy
 
@@ -225,7 +228,7 @@ def test_unset_mutable_default_read_returns_fresh_copy():
 
 def test_mutable_default_not_shared_between_classes_sharing_the_attribute():
     class TagsBase(Settings):
-        tags: List[str] = non_storage_setting(default=[])
+        tags: List[str] = sourceless_setting(default=[])
 
     class TagsDerived(TagsBase):
         pass  # the member (and its attribute object) is inherited, not cloned
@@ -254,8 +257,33 @@ def test_instance_access_shares_class_storage():
 
 
 def test_delete_setting_member_is_rejected():
-    with pytest.raises(TypeError, match="delete_setting"):
+    # the guard names the tool and its scope: the stored value goes, the
+    # member itself stays declared
+    with pytest.raises(TypeError, match=r"delete_setting\('flag'\).*stays declared"):
         del SimpleSettings.flag
+
+
+def test_delete_setting_member_on_an_instance_is_rejected():
+    # the instance shares the class storage, so an instance-scoped delete
+    # does not exist; the guard names the class-level tool
+    with pytest.raises(
+        TypeError,
+        match=r"the instance shares the class storage.*delete_setting\('flag'\)",
+    ):
+        del SimpleSettings().flag
+
+
+def test_instance_foreign_attributes_behave_normally():
+    instance = SimpleSettings()
+    instance.extra = 42
+    assert instance.extra == 42
+    del instance.extra
+    assert not hasattr(instance, "extra")
+    # the message is the interpreter's own: 3.11+ words it "object has no
+    # attribute 'missing'", while 3.9 and 3.10 say just "missing" — the
+    # assertion follows the attribute name alone, true in every version
+    with pytest.raises(AttributeError, match="missing"):
+        del instance.missing
 
 
 def test_non_setting_attribute_behaves_normally():
@@ -267,10 +295,10 @@ def test_non_setting_attribute_behaves_normally():
 
 def test_inheritance_composes_members_with_separate_storage():
     class Base(Settings):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     class Derived(Base):
-        extra: int = non_storage_setting(default=5)
+        extra: int = sourceless_setting(default=5)
 
     assert set(Derived.__settings_members__) == {"flag", "extra"}
     Derived.flag = True
@@ -296,7 +324,7 @@ def test_annotations_are_resolved():
 
 
 class MetadataSettings(Settings):
-    flag: bool = non_storage_setting(default=False)
+    flag: bool = sourceless_setting(default=False)
 
 
 def test_setting_metadata_roundtrip():
@@ -455,7 +483,7 @@ def test_setting_metadata_rejects_undeclared_member():
 
 def test_setting_metadata_accepts_inherited_member():
     class SubMetadataSettings(MetadataSettings):
-        extra: int = non_storage_setting(default=1)
+        extra: int = sourceless_setting(default=1)
 
     # an inherited member is declared on the subclass as well
     SubMetadataSettings.set_setting_metadata("flag", "k", "value")
@@ -539,14 +567,14 @@ def test_unknown_setting_name_raises_key_error():
 
 
 def test_full_setting_name_default_pattern():
-    attr = NonStorageSetting()
+    attr = setting()
     full = get_full_setting_name("flag", attr, MetadataSettings)
     module = MetadataSettings.__module__
     assert full == f"{module}.MetadataSettings.flag"
 
 
 def test_full_setting_name_explicit_name_replaces_pattern():
-    attr = NonStorageSetting(name="my-name")
+    attr = setting(name="my-name")
     full = get_full_setting_name("flag", attr, MetadataSettings)
     assert full == "my-name"
 
@@ -1153,7 +1181,7 @@ _CONSTRAINT_CASES = [
 
 def _constrained(default=None, **constraints):
     class Constrained(Settings):
-        value: Any = non_storage_setting(default=default, **constraints)
+        value: Any = sourceless_setting(default=default, **constraints)
 
     return Constrained
 
@@ -1198,7 +1226,7 @@ def test_setting_validation_error_is_a_value_error():
 
 def test_constraint_violation_message_names_member_class_and_bound():
     class Port(Settings):
-        port: int = non_storage_setting(default=8080, le=65535)
+        port: int = sourceless_setting(default=8080, le=65535)
 
     with pytest.raises(
         SettingValidationError,
@@ -1212,7 +1240,7 @@ def test_constraint_violation_message_names_member_class_and_bound():
 
 def test_constraints_apply_after_conversion():
     class Port(Settings):
-        port: int = non_storage_setting(default=1, le=65535)
+        port: int = sourceless_setting(default=1, le=65535)
 
     # "70000" converts to int first, then meets the bound
     with pytest.raises(SettingValidationError, match="70000"):
@@ -1223,19 +1251,19 @@ def test_invalid_default_fails_the_class_statement():
     with pytest.raises(TypeError, match="invalid defaults in Constrained"):
 
         class Constrained(Settings):
-            port: int = non_storage_setting(default=70000, le=65535)
+            port: int = sourceless_setting(default=70000, le=65535)
 
 
 def test_converted_default_is_checked_in_converted_form():
     with pytest.raises(TypeError, match="port: value 70000"):
 
         class Constrained(Settings):
-            port: int = non_storage_setting(default="70000", le=65535)
+            port: int = sourceless_setting(default="70000", le=65535)
 
 
 def test_subclasses_validate_inherited_constraints():
     class Base(Settings):
-        port: int = non_storage_setting(default=8080, le=65535)
+        port: int = sourceless_setting(default=8080, le=65535)
 
     class Derived(Base):
         pass
@@ -1380,7 +1408,7 @@ def test_single_setting_save_of_a_violating_value_raises():
     # check is the guard, and a violation raises like the assignment
     # and the class gate do — not a logged skip
     class ConditionalPort(Settings):
-        ssl: bool = non_storage_setting(default=False)
+        ssl: bool = sourceless_setting(default=False)
         port: int = environment_variable_setting(
             name="TEST_SINGLE_SAVE_PORT", default=80, eq=443, when=ssl
         )
@@ -1428,8 +1456,8 @@ def test_contains_setting_source_errors_arrive_plain_and_unwrapped():
 
 def test_none_passes_ordered_and_shape_constraints():
     class OptionalSettings(Settings):
-        count: Optional[int] = non_storage_setting(default=None, gt=0)
-        name: Optional[str] = non_storage_setting(default=None, min_length=1)
+        count: Optional[int] = sourceless_setting(default=None, gt=0)
+        name: Optional[str] = sourceless_setting(default=None, min_length=1)
 
     assert OptionalSettings.count is None  # unset reads as the None default
     assert OptionalSettings.name is None
@@ -1437,7 +1465,7 @@ def test_none_passes_ordered_and_shape_constraints():
 
 def test_none_takes_part_in_equality_constraints():
     class OnlyProd(Settings):
-        mode: Optional[str] = non_storage_setting(default="prod", eq="prod")
+        mode: Optional[str] = sourceless_setting(default="prod", eq="prod")
 
     OnlyProd.mode = "prod"
     with pytest.raises(SettingValidationError):
@@ -1446,7 +1474,7 @@ def test_none_takes_part_in_equality_constraints():
 
 def test_constraint_bounds_compare_any_comparable_type():
     class Schedule(Settings):
-        since: dt.date = non_storage_setting(default=dt.date(2026, 6, 1), gt=dt.date(2026, 1, 1))
+        since: dt.date = sourceless_setting(default=dt.date(2026, 6, 1), gt=dt.date(2026, 1, 1))
 
     Schedule.since = dt.date(2026, 6, 1)
     with pytest.raises(SettingValidationError):
@@ -1496,26 +1524,26 @@ def test_validator_exception_propagates_as_is():
 
 def test_bad_regex_fails_at_declaration():
     with pytest.raises(ValueError, match="Invalid regex"):
-        non_storage_setting(default="x", regex="([unclosed")
+        sourceless_setting(default="x", regex="([unclosed")
 
 
 def test_non_callable_validator_fails_at_declaration():
     with pytest.raises(TypeError, match="validator must be callable"):
-        non_storage_setting(default=1, validator=42)
+        sourceless_setting(default=1, validator=42)
 
 
 def test_ordering_and_shape_constraints_do_not_mix():
     with pytest.raises(TypeError, match="conflicting constraints"):
-        non_storage_setting(default=1, gt=0, min_length=1)
-    non_storage_setting(default=1, gt=0)  # alone is fine
-    non_storage_setting(default="x", min_length=1, regex="x")  # both shape the string — fine too
+        sourceless_setting(default=1, gt=0, min_length=1)
+    sourceless_setting(default=1, gt=0)  # alone is fine
+    sourceless_setting(default="x", min_length=1, regex="x")  # both shape the string — fine too
 
 
 def test_valueless_declaration_is_refused():
     # a member no storage ever serves must state its value: the factory
     # refuses the declaration instead of leaving a member nothing loads
     with pytest.raises(TypeError, match="pass default="):
-        non_storage_setting()
+        sourceless_setting()
 
 
 # ---------------------------------------------------------------------------
@@ -1537,7 +1565,7 @@ def test_register_and_unregister_settings_attribute():
         LibraryConfiguration.register_settings_attribute(DummyAttribute, DummySerializer)
         assert LibraryConfiguration._get_serializer_factory(DummyAttribute) is DummySerializer
     finally:
-        LibraryConfiguration._attribute_serializers.pop(DummyAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, DummyAttribute), None)
 
 
 # ---------------------------------------------------------------------------
@@ -1736,7 +1764,7 @@ def test_serializer_notification_sink_call_count_and_order():
             ("end-action",),
         ]
     finally:
-        LibraryConfiguration._attribute_serializers.pop(attribute_class, None)
+        LibraryConfiguration._attribute_serializers.pop((None, attribute_class), None)
 
 
 def test_pipeline_survives_backend_exception_and_keeps_default():
@@ -1748,7 +1776,7 @@ def test_pipeline_survives_backend_exception_and_keeps_default():
         assert settings_class.value == 5  # default kept
         assert ("end-load",) in events  # hooks still balanced
     finally:
-        LibraryConfiguration._attribute_serializers.pop(attribute_class, None)
+        LibraryConfiguration._attribute_serializers.pop((None, attribute_class), None)
 
 
 def test_user_facing_error_is_propagated():
@@ -1759,7 +1787,7 @@ def test_user_facing_error_is_propagated():
         with pytest.raises(ValueError, match="misconfigured"):
             settings_class.load_settings()
     finally:
-        LibraryConfiguration._attribute_serializers.pop(attribute_class, None)
+        LibraryConfiguration._attribute_serializers.pop((None, attribute_class), None)
 
 
 def test_user_facing_error_from_synchronize_is_propagated():
@@ -1770,7 +1798,7 @@ def test_user_facing_error_from_synchronize_is_propagated():
         with pytest.raises(ValueError, match="flush"):
             settings_class.save_settings()
     finally:
-        LibraryConfiguration._attribute_serializers.pop(attribute_class, None)
+        LibraryConfiguration._attribute_serializers.pop((None, attribute_class), None)
 
 
 # ---------------------------------------------------------------------------
@@ -1825,7 +1853,7 @@ def test_minimal_serializer_without_optional_interfaces():
         assert storage == {}
         assert len(syncs) == 2
     finally:
-        LibraryConfiguration._attribute_serializers.pop(MinimalAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, MinimalAttribute), None)
 
 
 def test_serializer_with_wishes_but_no_notification_sink():
@@ -1889,7 +1917,7 @@ def test_serializer_with_wishes_but_no_notification_sink():
             ("synchronize",),
         ]
     finally:
-        LibraryConfiguration._attribute_serializers.pop(WishAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, WishAttribute), None)
 
 
 def test_serializer_delimiter_wish_outside_whitelist_falls_back_with_warning(caplog):
@@ -1953,7 +1981,7 @@ def test_serializer_delimiter_wish_outside_whitelist_falls_back_with_warning(cap
         assert "DashSerializer" in message
         assert "'-'" in message
     finally:
-        LibraryConfiguration._attribute_serializers.pop(DashAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, DashAttribute), None)
 
 
 def test_serializer_with_notification_sink_but_no_wishes():
@@ -2043,4 +2071,4 @@ def test_serializer_with_notification_sink_but_no_wishes():
             ("end-action",),
         ]
     finally:
-        LibraryConfiguration._attribute_serializers.pop(SinkAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, SinkAttribute), None)

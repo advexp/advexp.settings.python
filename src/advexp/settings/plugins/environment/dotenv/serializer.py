@@ -70,7 +70,6 @@ from advexp.settings.plugin_api import (
 )
 from advexp.settings.plugins.environment.dotenv.configuration import DotenvConfiguration
 from advexp.settings_base.dotenv_file import DOTENV_FILE_METADATA
-from advexp.settings_base.env_parameter import EnvParameter, resolve_templated_path
 from advexp.settings_base.environment_lookup import environment_key
 from advexp.settings_base.environment_nested import (
     contains_nested_environment_value,
@@ -88,11 +87,12 @@ from advexp.settings_base.environment_options import (
 from advexp.settings_base.module_default import module_default_for
 from advexp.settings_base.names import setting_name_candidates, spelled_with_aliases
 from advexp.settings_base.setting_member import SettingMember
+from advexp.settings_base.settings_profile import SettingsProfile, resolve_templated_path
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     DOTENV_SOURCE_METADATA,
     LINK_FILE_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 
 try:
@@ -136,10 +136,10 @@ class DotenvSerializer(SettingsBaseSerializer):
         """The dotenv source seat in the class's chain; ``None`` when unbound.
 
         The ``dotenv_source(...)`` binding stores its link there (the file and the
-        path parameters), and the file resolution below reads it. A class that the
+        path profiles), and the file resolution below reads it. A class that the
         builder never bound (a class that uses the module default) has no entry.
         """
-        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     def __resolve_file_path(self) -> Path:
@@ -159,16 +159,16 @@ class DotenvSerializer(SettingsBaseSerializer):
         """
         link = self.__source_link()
         configured: Optional[Union[str, os.PathLike]] = None
-        parameters: Optional[Sequence[EnvParameter]] = None
+        profiles: Optional[Sequence[SettingsProfile]] = None
         if link is not None:
-            configured = link.param(LINK_FILE_PARAM)
-            parameters = link.param(LINK_PARAMETERS_PARAM)
+            configured = link.param(LINK_FILE_PARAM, default=None)
+            profiles = link.param(LINK_SETTINGS_PROFILE_PARAM, default=None)
         if configured is None:
             # the seat may exist without a file — a builder called without
             # one — so the class's binding, the module's declaration or the
             # module default serves it, the order the builder's docstring
             # promises
-            binding = self.context.get_class_metadata(DOTENV_FILE_METADATA)
+            binding = self.context.get_class_metadata(DOTENV_FILE_METADATA, default=None)
             if binding is not None:
                 configured = binding
             else:
@@ -181,7 +181,7 @@ class DotenvSerializer(SettingsBaseSerializer):
         spelling = resolve_templated_path(
             self.context,
             configured,
-            parameters,
+            profiles,
             f"the dotenv backend ({PACKAGE_NAME})",
         )
         return self.context.anchored_file_path((DOTENV_FILE_METADATA, spelling), spelling)

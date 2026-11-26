@@ -25,12 +25,16 @@ The application-facing API of the settings package.
         - get_setting_all_metadata
         - contains_setting_metadata
         - delete_setting_metadata
+        - delete_setting_all_metadata
         - set_class_metadata
         - get_class_metadata
         - get_class_all_metadata
         - contains_class_metadata
         - delete_class_metadata
         - delete_class_all_metadata
+        - reset_setting_all_metadata
+        - reset_all_settings_metadata
+        - reset_class_all_metadata
 
 ## Library configuration
 
@@ -47,29 +51,37 @@ The application-facing API of the settings package.
 ## Attribute parameters
 
 The forms that a member's declaration can take. The plain parameter and
-the non-storage parameter come from the package root; the file families
+the sourceless parameter come from the package root; the file families
 provide theirs in their plugin modules — the same modules that the
 examples import as `js`, `ts`, `ys`, `env` and `dotenv`.
 
 ::: advexp.settings.setting
 
-::: advexp.settings.Setting
+::: advexp.settings.sourceless_setting
 
-::: advexp.settings.non_storage_setting
+::: advexp.settings.SourcelessSetting
+
+The member factories of the source families are family-wide: they live in
+`advexp.settings_base`, and the package of each family re-exports its
+factory — importing that package is what enables the family, so the
+factory and the backend always arrive together. They work in a class body
+and in a [declaration base](../shared-declarations.md) alike.
 
 ::: advexp.settings.plugins.json_settings.json_setting
-
-::: advexp.settings.plugins.json_settings.JSONSetting
-
 ::: advexp.settings.plugins.toml_settings.toml_setting
-
-::: advexp.settings.plugins.toml_settings.TOMLSetting
-
 ::: advexp.settings.plugins.yaml_settings.yaml_setting
-
-::: advexp.settings.plugins.yaml_settings.YAMLSetting
-
+::: advexp.settings.plugins.environment.dotenv.dotenv_setting
 ::: advexp.settings.plugins.environment.variables.environment_variable_setting
+
+## Shared declarations
+
+::: advexp.settings.SettingDeclarations
+
+
+
+
+
+
 
 ::: advexp.settings.plugins.environment.dotenv.dotenv_setting
 
@@ -107,9 +119,17 @@ class can use as many families as it has storages.
 
 ::: advexp.settings.plugins.environment.dotenv.dotenv_file
 
-## Path parameters
+## Dynamic file binders
 
-::: advexp.settings.env_parameter
+::: advexp.settings.plugins.json_settings.json_dynamic_file
+
+::: advexp.settings.plugins.toml_settings.toml_dynamic_file
+
+::: advexp.settings.plugins.yaml_settings.yaml_dynamic_file
+
+## Settings profiles
+
+::: advexp.settings.settings_profile
 
 ## Module file defaults
 
@@ -142,6 +162,13 @@ the configuration holder holds the module-level file and the name pattern.
 ::: advexp.settings.plugins.yaml_dynamic_settings.YAMLDynamicSettingsPlugin
 
 ::: advexp.settings.plugins.yaml_dynamic_settings.YAMLDynamicSettingsConfiguration
+
+## The member address
+
+The `setting_name` parameter of the per-member and the metadata methods:
+a member name or a getter lambda for it.
+
+::: advexp.settings.SettingRef
 
 ## Errors and sentinels
 

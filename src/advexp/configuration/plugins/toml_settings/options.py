@@ -14,30 +14,31 @@ distribution rejects it.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Union
 
 from advexp.configuration.plugin_api import PACKAGE_NAME
-from advexp.configuration.plugins.toml_settings.setting import TOMLSetting
+from advexp.configuration.plugins.toml_settings.serializer import TOMLSettingsSerializer
 from advexp.settings_base.dynamic_document import (
     TOML_DYNAMIC_GROUP_METADATA,
     check_dynamic_settings_group,
 )
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
-)
 from advexp.settings_base.pointer import pointer_steps
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
     LINK_PATH_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 from advexp.settings_base.toml_file import TOML_DYNAMIC_FILE_METADATA, check_toml_file
+from advexp.settings_base.toml_setting import TOMLSetting
 
 
 def toml_source(
@@ -46,7 +47,7 @@ def toml_source(
     name_pattern: Optional[str] = None,
     dynamic_file: Optional[Union[str, os.PathLike]] = None,
     dynamic_of: Optional[str] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> SourceBinding:
     """Declare a TOML file link, in the form used by this distribution.
 
@@ -63,7 +64,7 @@ def toml_source(
 
     ``file`` names the file that the link reads. It may contain template slots
     that are resolved through environment variables:
-    ``toml_source(file="settings-{APP_ENV}.toml", parameters=app_env)`` reads
+    ``toml_source(file="settings-{APP_ENV}.toml", settings_profile=profile)`` reads
     the file of the environment that ``APP_ENV`` names.
 
     ``path`` anchors every key of the link inside a subtree of the document, as
@@ -103,7 +104,7 @@ def toml_source(
     templates: tuple = (os.fspath(file),)
     if dynamic_file is not None:
         templates = (os.fspath(file), os.fspath(dynamic_file))
-    spelled = _link_parameters(parameters, templates, "toml_source")
+    spelled = _link_settings_profile(settings_profile, templates, "toml_source")
     extras: Mapping[str, Any] = {}
     if dynamic_file is not None or dynamic_of is not None:
         extras = {
@@ -117,11 +118,12 @@ def toml_source(
     return SourceBinding(
         link=SourceLink(
             attribute_class=TOMLSetting,
+            serializer_class=TOMLSettingsSerializer,
             params={
                 LINK_FILE_PARAM: file,
                 LINK_PATH_PARAM: path,
                 LINK_NAME_PATTERN_PARAM: name_pattern,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         ),
         extras=extras or None,

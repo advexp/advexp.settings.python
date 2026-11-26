@@ -56,20 +56,17 @@ from advexp.settings.plugin_api import NO_DEFAULT
 from advexp.settings.plugins.environment import NameCase
 from advexp.settings.plugins.environment.dotenv import (
     DotenvSerializer,
-    dotenv_setting,
     dotenv_source,
 )
 from advexp.settings.plugins.environment.variables import (
     EnvironmentVariablesSerializer,
     env_source,
-    environment_variable_setting,
 )
 from advexp.settings.plugins.json_dynamic_settings import (
     JSONDynamicSettingsPlugin,
 )
 from advexp.settings.plugins.json_settings import (
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.settings.plugins.toml_dynamic_settings import (
@@ -77,7 +74,6 @@ from advexp.settings.plugins.toml_dynamic_settings import (
 )
 from advexp.settings.plugins.toml_settings import (
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.settings.plugins.yaml_dynamic_settings import (
@@ -85,8 +81,22 @@ from advexp.settings.plugins.yaml_dynamic_settings import (
 )
 from advexp.settings.plugins.yaml_settings import (
     YAMLSettingsSerializer,
-    yaml_setting,
     yaml_source,
+)
+from advexp.settings_base.dotenv_setting import (
+    dotenv_setting,
+)
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
+from advexp.settings_base.json_setting import (
+    json_setting,
+)
+from advexp.settings_base.toml_setting import (
+    toml_setting,
+)
+from advexp.settings_base.yaml_setting import (
+    yaml_setting,
 )
 
 # the paid editions' plugin modules join the coverage walk through a

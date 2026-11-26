@@ -18,10 +18,8 @@ from advexp.settings.plugins.yaml_dynamic_settings import (
 )
 from advexp.settings.plugins.yaml_settings import (
     NAME_PATTERN,
-    YAMLSetting,
     YAMLSettingsConfiguration,
     YAMLSettingsSerializer,
-    yaml_setting,
     yaml_source,
 )
 from advexp.settings_base.document_dynamic_settings_plugin import _UNSET_SECTION
@@ -34,6 +32,10 @@ from advexp.settings_base.names import (
     get_full_setting_name,
 )
 from advexp.settings_base.yaml_file import YAML_DYNAMIC_FILE_METADATA
+from advexp.settings_base.yaml_setting import (
+    YAMLSetting,
+    yaml_setting,
+)
 
 
 class Color(enum.Enum):
@@ -132,7 +134,10 @@ def test_import_enables_plugin_and_registers_pin_pair():
     # plugin's YAMLSetting binding, so the two registrations cannot clash
     pin = YAMLDynamicSettingsPlugin.binding.attribute_class
     assert pin is DynamicSettingAttribute[YAMLSetting]
-    assert LibraryConfiguration._get_serializer_factory(pin) is YAMLSettingsSerializer
+    assert (
+        LibraryConfiguration._get_serializer_factory(pin, "advexp.settings")
+        is YAMLSettingsSerializer
+    )
 
 
 # -- the document and its section ---------------------------------------------------

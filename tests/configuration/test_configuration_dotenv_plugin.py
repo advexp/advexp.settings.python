@@ -16,11 +16,13 @@ import pytest
 from advexp.configuration import AggregateLoadError, Configuration, LibraryConfiguration, Sources
 from advexp.configuration.plugins.environment.dotenv import (
     DotenvPlugin,
-    DotenvSetting,
-    dotenv_setting,
     dotenv_source,
 )
 from advexp.configuration.plugins.environment.dotenv.serializer import DotenvSerializer
+from advexp.settings_base.dotenv_setting import (
+    DotenvSetting,
+    dotenv_setting,
+)
 from advexp.settings_base.loading import member_where
 from advexp.settings_base.name_case import NameCase
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
@@ -132,7 +134,10 @@ def configured_file(tmp_path) -> Iterator[Path]:
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(DotenvSetting) is not None
+    assert (
+        LibraryConfiguration._get_serializer_factory(DotenvSetting, "advexp.configuration")
+        is not None
+    )
     # the base attribute class itself stays unregistered
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
 

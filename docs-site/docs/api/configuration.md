@@ -7,6 +7,25 @@ focused on loading.
     options:
       members:
         - load_configuration
+        - contains_member
+        - to_dict
+        - to_object
+        - get_plugin
+        - set_setting_metadata
+        - get_setting_metadata
+        - get_setting_all_metadata
+        - contains_setting_metadata
+        - delete_setting_metadata
+        - delete_setting_all_metadata
+        - set_class_metadata
+        - get_class_metadata
+        - get_class_all_metadata
+        - contains_class_metadata
+        - delete_class_metadata
+        - delete_class_all_metadata
+        - reset_setting_all_metadata
+        - reset_all_settings_metadata
+        - reset_class_all_metadata
 
 ## Library configuration
 
@@ -26,30 +45,38 @@ focused on loading.
 
 ## Attribute parameters
 
-The forms that a member's declaration can take. The chain and constant
+The forms that a member's declaration can take. The plain and sourceless
 parameters come from the package root; the file families provide theirs
 in their plugin modules — the same modules that the examples import as
 `js`, `ts`, `ys`, `env` and `dotenv`.
 
-::: advexp.configuration.chain_setting
+::: advexp.configuration.setting
 
-::: advexp.configuration.ChainSetting
+::: advexp.configuration.sourceless_setting
 
-::: advexp.configuration.constant_setting
+::: advexp.configuration.SourcelessSetting
 
-::: advexp.configuration.ConstantSetting
+The member factories of the source families are family-wide: they live in
+`advexp.settings_base`, and the package of each family re-exports its
+factory — importing that package is what enables the family, so the
+factory and the backend always arrive together. They work in a
+class body and in a [declaration base](../shared-declarations.md) alike.
+`setting` is the configuration-side name of the same `setting`.
 
 ::: advexp.configuration.plugins.json_settings.json_setting
-
-::: advexp.configuration.plugins.json_settings.JSONSetting
-
 ::: advexp.configuration.plugins.toml_settings.toml_setting
-
-::: advexp.configuration.plugins.toml_settings.TOMLSetting
-
 ::: advexp.configuration.plugins.yaml_settings.yaml_setting
+::: advexp.configuration.plugins.environment.dotenv.dotenv_setting
+::: advexp.configuration.plugins.environment.variables.environment_variable_setting
 
-::: advexp.configuration.plugins.yaml_settings.YAMLSetting
+## Shared declarations
+
+::: advexp.configuration.SettingDeclarations
+
+
+
+
+
 
 ::: advexp.configuration.plugins.environment.variables.environment_variable_setting
 
@@ -79,9 +106,11 @@ either inside `Sources(...)` or on its own.
 
 ::: advexp.configuration.plugins.mapping_source.MappingSourceLink
 
-## Path parameters
+::: advexp.configuration.plugins.pydantic.pydantic_source
 
-::: advexp.configuration.env_parameter
+## Settings profiles
+
+::: advexp.configuration.settings_profile
 
 ## Module file declarations
 
@@ -113,6 +142,13 @@ page.
 ::: advexp.configuration.plugins.toml_dynamic_settings.TOMLDynamicSettingsPlugin
 
 ::: advexp.configuration.plugins.yaml_dynamic_settings.YAMLDynamicSettingsPlugin
+
+## The member address
+
+The `setting_name` parameter of the metadata methods: a member name or a
+getter lambda for it.
+
+::: advexp.configuration.SettingRef
 
 ## Errors
 

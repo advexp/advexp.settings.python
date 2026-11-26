@@ -10,15 +10,11 @@ class-metadata validators and logging setup.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
+from advexp.settings_base.plugin_interface import IPlugin, PluginT
 from advexp.settings_base.setting_attribute_interface import ISettingAttribute
-from advexp.settings_base.settings_plugin_interface import ISettingsPlugin
 from advexp.settings_base.settings_serializer_interface import ISettingsSerializer
-
-if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
-    # SettingsBasePlugin imports this module for the declarative binding
-    from advexp.settings_base.settings_base_plugin import PluginT
 
 SerializerFactory = Type[ISettingsSerializer]
 """The serializer class the registry holds; calling it builds the instance
@@ -34,6 +30,13 @@ class and the metadata key; a validator never raises on its own."""
 FAMILY_ENTRY_SEPARATOR = "."
 """Joins a family key with the declaring class's module and name in the
 per-class entry key."""
+
+RESERVED_KEY_PREFIX = "__ADVEXP_SETTINGS_BASE_"
+"""The single spelling of the reserved class metadata keys: every key that
+the machinery stores for its own records is built from this prefix, and the
+listings of the metadata channel recognize the records by it. A reserved key
+stays addressable by its exact name; the composition lives here alone, so no
+other place interprets the spelling."""
 
 
 def family_entry_key(family_key: str, declaring_class: type) -> str:
@@ -127,8 +130,10 @@ class LibraryConfiguration:
     backend, and every backend family carries its own.
     """
 
-    _attribute_serializers: Dict[Type[ISettingAttribute], SerializerFactory] = {}
-    _plugin_classes: Dict[Type[ISettingsPlugin], Type[ISettingsPlugin]] = {}
+    _attribute_serializers: Dict[
+        Tuple[Optional[str], Type[ISettingAttribute]], SerializerFactory
+    ] = {}
+    _plugin_classes: Dict[Type[IPlugin], Type[IPlugin]] = {}
     _class_metadata_validators: Dict[str, ClassMetadataValidator] = {}
 
     # -- logging ---------------------------------------------------------
@@ -183,13 +188,24 @@ class LibraryConfiguration:
         cls,
         attribute_class: Type[ISettingAttribute],
         serializer_factory: SerializerFactory,
+        family: Optional[str] = None,
     ) -> None:
-        """Map an attribute class to the serializer class that serves its settings.
+        """Map an attribute class to the serializer class that serves its settings,
+        within the family that registered the pair.
 
-        Registering the same pair again is a no-op: several plugins may register one
-        shared attribute-to-serializer pair. Registering the same attribute class
-        with a *different* serializer class raises :class:`ValueError`: two backends
-        that claim one attribute are a conflict, not an override.
+        ``family`` is the distribution family of the registering plugin. The
+        member classes that the distributions share (the classes of
+        :mod:`advexp.settings_base.family_members`) are registered once per
+        family: one process holds both distributions, and each serves the
+        shared class with its own serializer. A registration without a family
+        (a plugin of its own, a third-party backend) sits in the family-less
+        slot that every family sees.
+
+        Registering the same pair again is a no-op: several plugins may
+        register one shared attribute-to-serializer pair. Registering the
+        same attribute class in the same family with a *different* serializer
+        class raises :class:`ValueError`: two backends that claim one
+        attribute are a conflict, not an override.
 
         A dynamic-attribute pin is registered in the same way, as a slot of its own:
         the serializer that is bound to it serves only the dynamic entries, and it
@@ -198,35 +214,45 @@ class LibraryConfiguration:
         """
         if not isinstance(attribute_class, type):
             raise TypeError("attribute_class must be a class")
-        existing = cls._attribute_serializers.get(attribute_class)
+        key = (family, attribute_class)
+        existing = cls._attribute_serializers.get(key)
         if existing is not None and existing is not serializer_factory:
             raise ValueError(
                 f"'{attribute_class.__name__}' attribute is already registered "
                 "with a different serializer class"
             )
-        cls._attribute_serializers[attribute_class] = serializer_factory
+        cls._attribute_serializers[key] = serializer_factory
 
     @classmethod
     def _get_serializer_factory(
-        cls, attribute_class: Type[ISettingAttribute]
+        cls, attribute_class: Type[ISettingAttribute], family: Optional[str] = None
     ) -> Optional[SerializerFactory]:
         """Return the serializer class that is registered for the attribute class.
 
-        There is no walk over subclasses: each plugin registers its own concrete
-        attribute classes, including a dynamic-attribute pin, which has a slot of its
-        own.
+        ``family`` is the distribution family of the settings class that the
+        member belongs to: a shared member class is served by the serializer
+        that the family of that class registered. The family-less slot of a
+        plugin of its own answers every family, after the family's own slot.
+
+        There is no walk over subclasses: each plugin registers its own
+        concrete attribute classes, including a dynamic-attribute pin, which
+        has a slot of its own.
         """
-        return cls._attribute_serializers.get(attribute_class)
+        factory = cls._attribute_serializers.get((family, attribute_class))
+        if factory is None and family is not None:
+            factory = cls._attribute_serializers.get((None, attribute_class))
+        return factory
 
     @classmethod
-    def register_settings_plugin(cls, plugin_class: Type[ISettingsPlugin]) -> None:
+    def register_settings_plugin(cls, plugin_class: Type[IPlugin]) -> None:
         """Register a plugin class and call its ``setup()`` hook, if there is one.
 
         A plugin may define a ``setup()`` class method. It runs once, right at
         registration, and it is the place where a plugin usually registers its
         attribute-to-serializer pairs through :meth:`register_settings_attribute`.
         ``setup()`` is optional: a plugin may register its pieces inline at import
-        time instead.
+        time instead. An extension plugin registers the same way, with nothing
+        to set up: registration only makes it reachable through ``get_plugin``.
 
         :class:`~advexp.settings_base.settings_base_plugin.SettingsBasePlugin` ships
         a ``setup()``. It registers the declared
@@ -268,7 +294,7 @@ class LibraryConfiguration:
         )
 
     @classmethod
-    def registered_plugin_classes(cls) -> List[Type[ISettingsPlugin]]:
+    def registered_plugin_classes(cls) -> List[Type[IPlugin]]:
         """Return the registered plugin classes, in registration order."""
         return list(cls._plugin_classes)
 

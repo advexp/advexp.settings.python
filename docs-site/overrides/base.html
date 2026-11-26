@@ -9,9 +9,9 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       {% if page.meta and page.meta.description %}
-        <meta name="description" content="{{ page.meta.description }}">
+        <meta name="description" content="{{ page.meta.description | e }}">
       {% elif config.site_description %}
-        <meta name="description" content="{{ config.site_description }}">
+        <meta name="description" content="{{ config.site_description | e }}">
       {% endif %}
       {% if page.meta and page.meta.author %}
         <meta name="author" content="{{ page.meta.author }}">
@@ -20,6 +20,12 @@
       {% endif %}
       {% if page.canonical_url %}
         <link rel="canonical" href="{{ page.canonical_url }}">
+      {% endif %}
+      {% if config.plugins.llmstxt and config.plugins.llmstxt.config.enabled %}
+        <link rel="describedby" href="{{ 'llms.txt' | url }}">
+        {% if page.markdown_url %}
+          <link rel="alternate" type="text/markdown" href="{{ page.markdown_url | url }}">
+        {% endif %}
       {% endif %}
       {% if page.previous_page %}
         <link rel="prev" href="{{ page.previous_page.url | url }}">
@@ -32,12 +38,9 @@
           <link rel="alternate" href="{{ alt.link | url }}" hreflang="{{ alt.lang | d(lang.t('language')) }}">
         {% endfor %}
       {% endif %}
-      {% if "rss" in config.plugins %}
-        <link rel="alternate" type="application/rss+xml" title="{{ lang.t('rss.created') }}" href="{{ 'feed_rss_created.xml' | url }}">
-        <link rel="alternate" type="application/rss+xml" title="{{ lang.t('rss.updated') }}" href="{{ 'feed_rss_updated.xml' | url }}">
-      {% endif %}
-      <link rel="icon" href="{{ config.theme.favicon | url }}">
-      <meta name="generator" content="mkdocs-{{ mkdocs_version }}, mkdocs-material-9.7.7">
+      {% set href = config.theme.favicon | d("assets/images/favicon.png") %}
+      <link rel="icon" href="{{ href | url }}">
+      <meta name="generator" content="{{ generator }}">
     {% endblock %}
     {% block htmltitle %}
       {% if page.meta and page.meta.title %}
@@ -49,10 +52,19 @@
       {% endif %}
     {% endblock %}
     {% block styles %}
-      <link rel="stylesheet" href="{{ 'assets/stylesheets/main.ec1eaa64.min.css' | url }}">
+      {% if config.theme.variant == "modern" %}
+        {% set href = 'assets/stylesheets/modern/main.4ab2de0c.min.css' | url %}
+      {% else %}
+        {% set href = 'assets/stylesheets/classic/main.94dd801d.min.css' | url %}
+      {% endif %}
+      <link rel="stylesheet" href="{{ href }}">
       {% if config.theme.palette %}
-        {% set palette = config.theme.palette %}
-        <link rel="stylesheet" href="{{ 'assets/stylesheets/palette.ab4e12ef.min.css' | url }}">
+        {% if config.theme.variant == "modern" %}
+          {% set href = 'assets/stylesheets/modern/palette.b60ce83d.min.css' | url %}
+        {% else %}
+          {% set href = 'assets/stylesheets/classic/palette.813d4b3f.min.css' | url %}
+        {% endif %}
+        <link rel="stylesheet" href="{{ href }}">
       {% endif %}
       {% include "partials/icons.html" %}
     {% endblock %}
@@ -62,23 +74,24 @@
       {% endfor %}
     {% endblock %}
     {% block fonts %}
-      {# Local change against the theme's stock base.html (mkdocs-material
-         9.7.7): the font display is "optional", not the theme's "fallback".
-         A swap from the fallback font re-measures the whole page after the
-         first paint, which briefly pushed the tall table-of-contents
-         sidebars over their height limit and flashed a scrollbar.
-         "optional" keeps the first paint's metrics final: with the font in
-         cache the page starts on Roboto, on a cold first visit it stays on
-         the fallback for that load — a swap never reflows the layout.
-         Re-check this one line whenever the theme is upgraded. #}
+      {#- Local change against the theme's stock base.html (zensical-ui
+          classic, 0.0.41): the font display is "optional", not the theme's
+          "fallback". A swap from the fallback font re-measures the whole
+          page after the first paint, which briefly pushed the tall
+          table-of-contents sidebars over their height limit and flashed a
+          scrollbar. "optional" keeps the first paint's metrics final: with
+          the font in cache the page starts on Roboto, on a cold first
+          visit it stays on the fallback for that load — a swap never
+          reflows the layout. Re-check this one line whenever the theme is
+          upgraded. -#}
       {% if config.theme.font != false %}
         {% set text = config.theme.font.text | d("Roboto", true) %}
         {% set code = config.theme.font.code | d("Roboto Mono", true) %}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family={{
-            text | replace(' ', '+') + ':300,300i,400,400i,700,700i%7C' +
+            text | replace(' ', '+') + ':300,300i,400,400i,500,500i,700,700i%7C' +
             code | replace(' ', '+') + ':400,400i,700,700i'
-          }}&display=optional">
+          }}&amp;display=optional">
         <style>:root{--md-text-font:"{{ text }}";--md-code-font:"{{ code }}"}</style>
       {% endif %}
     {% endblock %}
@@ -107,14 +120,11 @@
     {% set features = config.theme.features or [] %}
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer"></label>
+    <label class="md-overlay" for="__drawer" aria-hidden="true"></label>
     <div data-md-component="skip">
-      {% if page.toc | first is defined %}
-        {% set skip = page.toc | first %}
-        <a href="{{ skip.url | url }}" class="md-skip">
-          {{ lang.t("action.skip") }}
-        </a>
-      {% endif %}
+      <a href="#__skip" class="md-skip">
+        {{ lang.t("action.skip") }}
+      </a>
     </div>
     <div data-md-component="announce">
       {% if self.announce() %}
@@ -179,6 +189,19 @@
               {% endif %}
               <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" {{ hidden }}>
                 <div class="md-sidebar__scrollwrap">
+                  {% if config.theme.variant != "classic" %}
+                    {% set toc = page.toc %}
+                    {% set first = toc | first %}
+                    {% if first and first.level == 1 %}
+                      {% set toc = first.children %}
+                    {% endif %}
+                    {% if toc %}
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    {% endif %}
+                  {% endif %}
                   <div class="md-sidebar__inner">
                     {% include "partials/toc.html" %}
                   </div>
@@ -192,6 +215,7 @@
                 {% include "partials/path.html" %}
               {% endif %}
               <article class="md-content__inner md-typeset">
+                <a id="__skip" tabindex="-1"></a>
                 {% block content %}
                   {% include "partials/content.html" %}
                 {% endblock %}
@@ -208,7 +232,7 @@
         {% include "partials/footer.html" %}
       {% endblock %}
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     {% if "navigation.instant.progress" in features %}
@@ -229,6 +253,12 @@
       {% set _ = namespace() %}
       {% set _.annotate = config.extra.annotate %}
       {% set _.tags = config.extra.tags %}
+      {% if "redirects" in config.plugins %}
+        {% set redirects = config.plugins["redirects"] | attr("config") %}
+        {% if redirects.enabled %}
+          {% set _.redirect = "redirect.json" | url %}
+        {% endif %}
+      {% endif %}
       {%- if config.extra.version -%}
         {%- set mike = config.plugins.mike -%}
         {%- if not mike or mike.config.version_selector -%}
@@ -242,6 +272,7 @@
           "translations": {
             "clipboard.copy": lang.t("clipboard.copy"),
             "clipboard.copied": lang.t("clipboard.copied"),
+            "clipboard.error": lang.t("clipboard.error"),
             "search.result.placeholder": lang.t("search.result.placeholder"),
             "search.result.none": lang.t("search.result.none"),
             "search.result.one": lang.t("search.result.one"),
@@ -251,7 +282,8 @@
             "search.result.term.missing": lang.t("search.result.term.missing"),
             "select.version": lang.t("select.version")
           },
-          "search": "assets/javascripts/workers/search.2c215733.min.js" | url,
+          "search": "assets/javascripts/workers/search.719e0d91.min.js" | url,
+          "redirect": _.redirect or none,
           "annotate": _.annotate or none,
           "tags": _.tags or none,
           "version": _.version or none
@@ -259,7 +291,7 @@
       </script>
     {% endblock %}
     {% block scripts %}
-      <script src="{{ 'assets/javascripts/bundle.d7400e89.min.js' | url }}"></script>
+      <script src="{{ 'assets/javascripts/bundle.d31f0ffa.min.js' | url }}"></script>
       {% for script in config.extra_javascript %}
         {{ script | script_tag }}
       {% endfor %}

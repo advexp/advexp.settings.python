@@ -19,7 +19,7 @@ from configuration_validation_when_classes import (
     WhenConditionOnConfiguration,
 )
 
-from advexp.configuration import Configuration, constant_setting
+from advexp.configuration import Configuration, sourceless_setting
 
 
 def test_condition_off_ignores_the_constraints():
@@ -61,8 +61,8 @@ def test_when_literal_fails_the_class_statement():
     with pytest.raises(TypeError) as info:
 
         class LiteralConditionConfiguration(Configuration):
-            flag: bool = constant_setting(default=False)
-            tag: str = constant_setting(default="xx", min_length=2, when=True)
+            flag: bool = sourceless_setting(default=False)
+            tag: str = sourceless_setting(default="xx", min_length=2, when=True)
 
     assert str(info.value) == (
         "when must reference a member of the same class, got True; "

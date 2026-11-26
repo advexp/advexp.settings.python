@@ -14,7 +14,7 @@ package. Nothing moves between the two sides except the file.
 Run from the repository root with the packages installed
 (``pip install advexp-settings advexp-configuration``):
 
-    python samples/both_packages/dynamic_exchange.py
+    python samples/both_packages/dynamic_settings_exchange.py
 
 The sample walks through four cases, and in each of them one side reads
 exactly what the other side wrote:
@@ -102,10 +102,20 @@ def shared_file_round_trip() -> None:
 def the_read_only_contract() -> None:
     section("the collection is read-only")
     reader = DashboardConfig.get_plugin(cjson_dynamic.JSONDynamicSettingsPlugin)
+    reader.load_configuration()
     try:
         reader.set_setting("dark_mode", False)
     except TypeError as error:
         print("a write is refused:", error)
+
+    # the entries still carry the reader's own runtime annotations: the
+    # writer's metadata never crosses the file, and this channel is the
+    # reader's alone (the next load_configuration() clears it)
+    reader.set_setting_metadata("dark_mode", "origin", "writer")
+    print(
+        "the reader's own metadata:",
+        reader.get_setting_metadata("dark_mode", "origin"),
+    )
 
 
 def the_flat_layout() -> None:

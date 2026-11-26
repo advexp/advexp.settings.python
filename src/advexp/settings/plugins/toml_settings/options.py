@@ -21,27 +21,30 @@ applications have always done.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
 from advexp.settings.plugin_api import PACKAGE_NAME
-from advexp.settings.plugins.toml_settings.setting import TOMLSetting
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
-)
+from advexp.settings.plugins.toml_settings.serializer import TOMLSettingsSerializer
 from advexp.settings_base.family_boundaries import stamped_options
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
     TOML_SOURCE_METADATA,
 )
 from advexp.settings_base.toml_file import (
     TOML_DYNAMIC_FILE_METADATA,
     check_toml_file,
+)
+from advexp.settings_base.toml_file import (
+    toml_dynamic_file as _toml_dynamic_file,
 )
 from advexp.settings_base.toml_file import (
     toml_file as _toml_file,
@@ -50,13 +53,14 @@ from advexp.settings_base.toml_options import (
     NAME_PATTERN,
     check_toml_options,
 )
+from advexp.settings_base.toml_setting import TOMLSetting
 
 
 def toml_source(
     file: Optional[Union[str, os.PathLike]] = None,
     name_pattern: Optional[str] = None,
     dynamic_file: Optional[Union[str, os.PathLike]] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> Mapping[str, Any]:
     """Bind a settings class to its TOML file storage, in the form used by this
     distribution.
@@ -74,9 +78,9 @@ def toml_source(
     ``file`` names the file of the declared members of the class. A builder
     without ``file`` uses the module default of the backend. The name may
     contain template slots that are resolved through environment variables:
-    ``toml_source(file="settings-{APP_ENV}.toml", parameters=app_env)`` reads
-    the file of the environment that ``APP_ENV`` names. The parameters are
-    declared once next to the binding and are shared by every templated path of
+    ``toml_source(file="settings-{APP_ENV}.toml", settings_profile=profile)`` reads
+    the file of the environment that ``APP_ENV`` names. The profile is
+    declared once next to the binding and is shared by every templated path of
     the class.
 
     ``name_pattern`` sets the pattern that builds the keys. If it is omitted,
@@ -87,7 +91,7 @@ def toml_source(
     ``dynamic_file`` moves the dynamic entries of the class (the settings with
     names given at runtime) into a TOML file of their own. A class without it
     keeps them in the static file. The name may contain template slots in the
-    same way as ``file``, filled from the same ``parameters``.
+    same way as ``file``, filled from the same ``settings_profile``.
 
     The binding is a metadata entry of the class itself. A subclass without its
     own ``toml_source`` inherits the nearest one above it, and a subclass with
@@ -111,14 +115,15 @@ def toml_source(
         templates = (os.fspath(file),)
         if dynamic_file is not None:
             templates = (os.fspath(file), os.fspath(dynamic_file))
-    spelled = _link_parameters(parameters, templates, "toml_source")
+    spelled = _link_settings_profile(settings_profile, templates, "toml_source")
     entry: dict = {
         TOML_SOURCE_METADATA: SourceLink(
             attribute_class=TOMLSetting,
+            serializer_class=TOMLSettingsSerializer,
             params={
                 LINK_FILE_PARAM: file,
                 LINK_NAME_PATTERN_PARAM: name_pattern,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         )
     }
@@ -138,3 +143,18 @@ def toml_file(path: Union[str, os.PathLike]) -> Mapping[str, Any]:
     ``class`` statement of a class of another distribution reject the entry.
     """
     return stamped_options(_toml_file(path), PACKAGE_NAME)
+
+
+def toml_dynamic_file(path: Union[str, os.PathLike]) -> Mapping[str, Any]:
+    """Name the file of the dynamic entries of a settings class, in the form
+    used by this distribution.
+
+    The dynamic file seat names the file of the class's runtime-named
+    entries, for the class whose dynamic collection works through the TOML
+    backend while the builder of another family holds the binding. The seat
+    and its validation are part of the shared vocabulary of the backend; see
+    :func:`advexp.settings_base.toml_file.toml_dynamic_file`. The stamp makes
+    the ``class`` statement of a class of another distribution reject the
+    entry.
+    """
+    return stamped_options(_toml_dynamic_file(path), PACKAGE_NAME)

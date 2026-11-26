@@ -1,10 +1,10 @@
 """The vocabulary of path parameters: slots, declarations, and per-pass values.
 
-The foundation module ``advexp.settings_base.env_parameter`` carries the
+The foundation module ``advexp.settings_base.settings_profile`` carries the
 mechanics that both distributions share:
 
 - the slot spelling that a templated file uses;
-- the ``env_parameter`` declaration, with its whitelist;
+- the ``settings_profile`` declaration, with its whitelist;
 - the per-pass resolution that the load pass scopes.
 
 The tests here hold the own rules of the vocabulary. The configuration
@@ -20,13 +20,14 @@ import os
 import pytest
 
 from advexp.configuration import Configuration
-from advexp.settings_base.env_parameter import (
+from advexp.settings_base.settings_profile import (
     SLOT_SPELLING,
-    EnvParameter,
-    env_parameter,
+    SettingsProfile,
     resolve_templated_path,
+    settings_profile,
     template_slots,
 )
+from advexp.settings_base.user_facing_error import UserFacingError
 
 
 def test_slots_are_identifiers_in_braces_each_listed_once():
@@ -49,14 +50,14 @@ def test_braces_that_spell_no_identifier_stay_literal():
 def test_the_declaration_carries_its_whitelist_and_slot():
     # the slot is the variable's own name unless slot= renames it, and
     # the whitelist stores as the tuple the link reads
-    plain = env_parameter("APP_ENV", choices=["dev", "prod"])
+    plain = settings_profile("APP_ENV", choices=["dev", "prod"])
     assert plain.variable == "APP_ENV"
     assert plain.choices == ("dev", "prod")
     assert plain.slot_name == "APP_ENV"
     assert plain.default is None
-    assert isinstance(plain, EnvParameter)
+    assert isinstance(plain, SettingsProfile)
 
-    renamed = env_parameter("APP_ENV", choices=["dev"], slot="env")
+    renamed = settings_profile("APP_ENV", choices=["dev"], slot="env")
     assert renamed.slot_name == "env"
     assert renamed.variable == "APP_ENV"
 
@@ -65,21 +66,21 @@ def test_the_declaration_refuses_an_unusable_shape():
     # a variable is a name, a whitelist is non-empty unique strings, a
     # default is one of them, a slot is an identifier
     with pytest.raises(TypeError, match="non-empty variable name"):
-        env_parameter("", choices=("dev",))
+        settings_profile("", choices=("dev",))
     with pytest.raises(TypeError, match="expects a sequence"):
-        env_parameter("APP_ENV", choices="dev")
+        settings_profile("APP_ENV", choices="dev")
     with pytest.raises(TypeError, match="non-empty strings"):
-        env_parameter("APP_ENV", choices=("dev", ""))
+        settings_profile("APP_ENV", choices=("dev", ""))
     with pytest.raises(TypeError, match="expects a string or None"):
-        env_parameter("APP_ENV", choices=("dev",), default=1)
+        settings_profile("APP_ENV", choices=("dev",), default=1)
     with pytest.raises(TypeError, match="not one of the declared choices"):
-        env_parameter("APP_ENV", choices=("dev",), default="test")
+        settings_profile("APP_ENV", choices=("dev",), default="test")
 
 
 def test_the_resolver_unfolds_a_templated_spelling(monkeypatch):
     # the unfolded spelling is the file the link reads this pass
     monkeypatch.setenv("APP_ENV", "dev")
-    parameter = env_parameter("APP_ENV", choices=("dev", "prod"))
+    parameter = settings_profile("APP_ENV", choices=("dev", "prod"))
     context = _context_of_declaration()
 
     unfolded = resolve_templated_path(
@@ -95,12 +96,23 @@ def test_the_resolver_passes_a_bare_spelling_through():
     assert resolve_templated_path(context, "app.json", None, "the test source") == "app.json"
 
 
+def test_an_unset_variable_without_a_default_ends_its_reason_cleanly(monkeypatch):
+    # the refusal ends with the reason itself: no stray decoration rides
+    # on the sentence the reader acts on
+    monkeypatch.delenv("APP_ENV", raising=False)
+    parameter = settings_profile("APP_ENV", choices=("dev", "prod"))
+    context = _context_of_declaration()
+
+    with pytest.raises(UserFacingError, match=r"declares no default$"):
+        resolve_templated_path(context, "settings-{APP_ENV}.json", (parameter,), "the test source")
+
+
 def test_one_pass_resolves_a_variable_once_and_the_next_anew(monkeypatch, caplog):
     # the scope is the pass: inside one, the second question reads the
     # remembered value; a later pass reads the environment again, and a
     # resolution outside any scope reads fresh every time
     context = _context_of_declaration()
-    parameter = env_parameter("APP_ENV", choices=("dev", "prod"))
+    parameter = settings_profile("APP_ENV", choices=("dev", "prod"))
     reads: list = []
 
     real_get = os.environ.get
@@ -112,7 +124,7 @@ def test_one_pass_resolves_a_variable_once_and_the_next_anew(monkeypatch, caplog
     monkeypatch.setenv("APP_ENV", "dev")
     # installed after the setenv: pytest's own undo bookkeeping probes the
     # old value through environ.get and owes no read to the machinery
-    monkeypatch.setattr("advexp.settings_base.env_parameter.os.environ.get", counting_get)
+    monkeypatch.setattr("advexp.settings_base.settings_profile.os.environ.get", counting_get)
 
     with caplog.at_level(logging.DEBUG):
         context.open_parameter_pass()

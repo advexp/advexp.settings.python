@@ -27,7 +27,7 @@ from advexp.configuration.plugins.json_dynamic_settings import (
     JSONDynamicSettingsConfiguration,
     JSONDynamicSettingsPlugin,
 )
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
 from advexp.configuration.plugins.toml_dynamic_settings import (
     TOMLDynamicSettingsConfiguration,
     TOMLDynamicSettingsPlugin,
@@ -40,6 +40,7 @@ from advexp.configuration.plugins.yaml_dynamic_settings import (
 from advexp.configuration.plugins.yaml_settings import yaml_source
 from advexp.settings import Settings
 from advexp.settings_base.json_file import JSON_DYNAMIC_FILE_METADATA
+from advexp.settings_base.json_setting import json_setting
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
 
 # pytest imports test modules by their bare file name (prepend mode), so the
@@ -260,36 +261,6 @@ def _write_json_group(path: Path, entries: dict, group: str = JSON_GROUP) -> Pat
             "the read-only collection does not support loading a single entry. Call "
             "load_configuration(), which refreshes every entry of the group",
         ),
-        (
-            lambda plugin: plugin.set_setting_metadata("dark_mode", "k", "v"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
-        (
-            lambda plugin: plugin.get_setting_metadata("dark_mode", "k"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
-        (
-            lambda plugin: plugin.get_setting_all_metadata("dark_mode"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
-        (
-            lambda plugin: plugin.contains_setting_metadata("dark_mode", "k"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
-        (
-            lambda plugin: plugin.delete_setting_metadata("dark_mode", "k"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
-        (
-            lambda plugin: plugin.delete_setting_all_metadata("dark_mode"),
-            "the JSONDynamicSettings collection has no setting metadata: the storage holds none, "
-            "and a reader never writes any",
-        ),
     ],
 )
 def test_every_mutating_method_refuses_with_type_error(call, message, tmp_path, monkeypatch):
@@ -304,7 +275,8 @@ def test_the_refusal_covers_every_method_the_facade_overrides():
     """The parametrized guard above names every method that refuses. A method that
     joins the read-only facade must join the guard, and a method that leaves the
     facade must leave the guard. The surface of the facade is also complete: it
-    has the load spelling next to the refusing methods and the reading hooks.
+    has the load spelling next to the refusing methods, the reading hooks, and
+    nothing else — the metadata API of the entries stays the base's own.
     """
     overridden = {
         name
@@ -320,18 +292,61 @@ def test_the_refusal_covers_every_method_the_facade_overrides():
         "set_setting",
         "update_from_dict",
         "load_setting",
-        "set_setting_metadata",
-        "get_setting_metadata",
-        "get_setting_all_metadata",
-        "contains_setting_metadata",
-        "delete_setting_metadata",
-        "delete_setting_all_metadata",
         # the reading hooks carrying the writer-group naming
         "_writer_group",
         "_ReadOnlyDocumentDynamicSettingsPlugin__require_writer_group",
         "_dynamic_full_name",
         "_dynamic_stored_names",
     }
+
+
+# -- the runtime metadata of the reader's entries ------------------------------------
+
+
+def test_the_collection_carries_runtime_metadata_of_its_entries(tmp_path):
+    _write_json_group(tmp_path / "app-settings.json", {"dark_mode": True})
+    plugin = JsonReader.get_plugin(JSONDynamicSettingsPlugin)
+    plugin.load_configuration()
+
+    plugin.set_setting_metadata("dark_mode", "ui-hint", "switch")
+    assert plugin.contains_setting_metadata("dark_mode", "ui-hint")
+    assert plugin.get_setting_metadata("dark_mode", "ui-hint") == "switch"
+    assert plugin.get_setting_all_metadata("dark_mode") == {"ui-hint": "switch"}
+
+    plugin.delete_setting_metadata("dark_mode", "ui-hint")
+    assert not plugin.contains_setting_metadata("dark_mode", "ui-hint")
+    assert plugin.get_setting_all_metadata("dark_mode") == {}
+
+    plugin.set_setting_metadata("dark_mode", "ui-hint", "switch")
+    plugin.delete_setting_all_metadata("dark_mode")
+    assert plugin.get_setting_all_metadata("dark_mode") == {}
+
+
+def test_the_metadata_of_the_entries_follows_the_dictionary_rule(tmp_path):
+    _write_json_group(tmp_path / "app-settings.json", {"dark_mode": True})
+    plugin = JsonReader.get_plugin(JSONDynamicSettingsPlugin)
+    plugin.load_configuration()
+    plugin.set_setting_metadata("dark_mode", "ui-hint", "switch")
+
+    with pytest.raises(KeyError, match="'absent' is not a metadata entry"):
+        plugin.get_setting_metadata("dark_mode", "absent")
+    assert plugin.get_setting_metadata("dark_mode", "absent", default="fallback") == "fallback"
+    assert plugin.get_setting_metadata("dark_mode", "ui-hint", default="fallback") == "switch"
+
+    with pytest.raises(KeyError, match="'retries' is not a dynamic setting"):
+        plugin.set_setting_metadata("retries", "ui-hint", "switch")
+
+
+def test_the_next_load_clears_the_metadata_with_the_rebuild(tmp_path):
+    _write_json_group(tmp_path / "app-settings.json", {"dark_mode": True})
+    plugin = JsonReader.get_plugin(JSONDynamicSettingsPlugin)
+    plugin.load_configuration()
+    plugin.set_setting_metadata("dark_mode", "ui-hint", "switch")
+
+    _write_json_group(tmp_path / "app-settings.json", {"dark_mode": False})
+    plugin.load_configuration()
+    assert plugin.get_setting("dark_mode", default=None) is False
+    assert plugin.get_setting_all_metadata("dark_mode") == {}
 
 
 # -- the round trip: the settings package writes, this package reads -----------------

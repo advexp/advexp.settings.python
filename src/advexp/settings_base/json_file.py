@@ -30,10 +30,12 @@ reading its own file.
 
 The distributions spell the bindings on their source builders,
 ``json_source(file=..., dynamic_file=...)``, and this module is the storage
-in which the builders put them. The static file also has a spelling of its
-own next to the source builder: :func:`json_file`. It is meant for classes
-whose binding is held by another family. The entry names the file of the
-JSON members of the class, without binding the class to the JSON storage.
+in which the builders put them. Each file also has a spelling of its own
+next to the source builder: :func:`json_file` for the static one and
+:func:`json_dynamic_file` for the dynamic one. They are meant for classes
+whose binding is held by another family. The entries name the files of the
+JSON members and of the runtime-named entries of the class, without binding
+the class to the JSON storage.
 """
 
 from __future__ import annotations
@@ -41,15 +43,15 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional, Union
 
-from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX, LibraryConfiguration
 
-JSON_FILE_METADATA = "__JSONSettingsFile"
+JSON_FILE_METADATA = f"{RESERVED_KEY_PREFIX}JSONSettingsFile"
 """The class metadata key of the static file binding — one key for both
 JSON backends of the family. The value is the file path itself (``str``
 or ``os.PathLike``); declaring it binds the class to a file of its own,
 and the binding wins over the backend's module default."""
 
-JSON_DYNAMIC_FILE_METADATA = "__JSONDynamicSettingsFile"
+JSON_DYNAMIC_FILE_METADATA = f"{RESERVED_KEY_PREFIX}JSONDynamicSettingsFile"
 """The class metadata key of the dynamic entries' own file. The value is
 the file path itself; declaring it moves the class's runtime-named entries
 into that file, apart from the declared members' one, and the binding wins
@@ -113,6 +115,49 @@ def json_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
     if problem is not None:
         raise TypeError(f"invalid JSON file binding: {problem}")
     return {JSON_FILE_METADATA: path}
+
+
+def json_dynamic_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
+    """Declare the file of the dynamic entries of a settings class: the
+    dynamic file seat of the family.
+
+    The entry names the file that holds the runtime-named entries of the class
+    (the settings whose names appear at run time), without binding the class
+    to the JSON storage. It serves the same class as the static seat: one
+    whose binding is held by another family, while its dynamic collection
+    works through the JSON backend. The plain members read the single source
+    of the class, and the dynamic entries go to the named file, apart from the
+    file of any declared members:
+
+    ```python
+    class AppSettings(Settings, options=(
+        env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        json_file("app-settings.json"),
+        json_dynamic_file("app-dynamic-settings.json"),
+    )):
+        mode: str = "production"  # a plain member: one source — env
+        retries: int = json_setting(name="retries", default=3)
+    ```
+
+    The seat stands on its own: the static and the dynamic file of a class
+    are independent, and a class may declare either seat without the other.
+    A class that is bound to the JSON storage names the dynamic file on its
+    source builder, ``json_source(dynamic_file=...)``. Declaring that
+    parameter next to this seat fails the ``class`` statement: one metadata
+    name would be declared twice.
+
+    The seat is a metadata entry of the class itself. A subclass without its
+    own seat reads the nearest one above it, and a subclass with its own seat
+    switches to it for itself and its subclasses only. The base class keeps
+    its own file. The runtime channel addresses the same entry
+    (``set_class_metadata(JSON_DYNAMIC_FILE_METADATA, ...)``). The path is
+    checked at the call, so an invalid value fails before the ``class``
+    statement.
+    """
+    problem = check_json_file(path)
+    if problem is not None:
+        raise TypeError(f"invalid JSON dynamic file binding: {problem}")
+    return {JSON_DYNAMIC_FILE_METADATA: path}
 
 
 LibraryConfiguration.register_class_metadata_validator(JSON_FILE_METADATA, check_json_file)

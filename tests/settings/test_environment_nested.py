@@ -21,7 +21,8 @@ from advexp.settings.plugins.environment import (
     NESTED_DELIMITER,
     NameCase,
 )
-from advexp.settings.plugins.environment.variables import env_source, environment_variable_setting
+from advexp.settings.plugins.environment.variables import env_source
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 from advexp.settings_base.required import REQUIRED
 
 DELIMITER = "__"

@@ -17,6 +17,10 @@ import this module. This module exports the following, grouped by role:
   :class:`SettingsBasePlugin` (context binding on top of the plugin
   contract, plus the declarative binding: a declared
   :class:`AttributeSerializerBinding` is registered by its ``setup()``),
+  and :class:`ExtensionBasePlugin` (the base of the second plugin kind: the
+  same context binding over the extension contract, with no attribute and
+  no serializer — an extension adds its own operations to one settings
+  class),
   :class:`DynamicSettingsBasePlugin` (the collection of runtime-named
   settings, pinned to a static backend through its mandatory binding, for
   which :class:`DynamicSettingAttribute` is the namespaced form of the pin),
@@ -25,8 +29,11 @@ import this module. This module exports the following, grouped by role:
   dynamic entries);
 - the contracts that signatures use: :class:`ISettingAttribute` (what a
   setting attribute is, and what the metaclass detects),
-  :class:`ISettingsPlugin` (the plugin contract that ``get_plugin``
-  accepts), :class:`ISettingsSerializer` (the mandatory serializer
+  :class:`IPlugin` (the plugin contract that ``get_plugin`` accepts: a name
+  plus the bound context of one settings class),
+  :class:`ISettingsPlugin` (the storage backend kind) and
+  :class:`IExtensionPlugin` (the extension kind),
+  :class:`ISettingsSerializer` (the mandatory serializer
   contract), :class:`ISettingsSerializerWishes`,
   :class:`ISerializerNotificationSink`, :class:`ISettingNameDescriber` and
   :class:`ISourceDescriber` (optional capabilities), and
@@ -39,7 +46,7 @@ import this module. This module exports the following, grouped by role:
   :func:`register_source_link_key` (the registration of the seat; the
   import of a backend module is the natural place for it). For a file
   backend whose binding spells a templated path, there are
-  :class:`EnvParameter` and :func:`env_parameter`. For a backend that ships
+  :class:`SettingsProfile` and :func:`settings_profile`. For a backend that ships
   a file seat of its own, there is :func:`register_file_seat`; the
   ``class`` statement then rejects that seat next to the source binding of
   this family;
@@ -60,6 +67,10 @@ import this module. This module exports the following, grouped by role:
   is how a backend reaches the context of any class in the chain);
 - sentinels and the error: :data:`NO_DEFAULT`, :data:`NOT_FOUND`, and
   :class:`UserFacingError`;
+- the member address type: :data:`SettingRef`, the ``setting_name``
+  parameter of the per-member and metadata methods of the facade and the
+  context — a member name string or a getter lambda
+  ``lambda s: s.<member>`` for it;
 - the dynamic name helpers: :func:`get_dynamic_settings_class_prefix` (the
   class part of the storage names, for backends that lay out the entries).
   The full name of one entry and the plain name behind it are given by the
@@ -90,6 +101,16 @@ import time. Importing the plugin module is what enables the plugin.
 ``samples/settings/custom_backend.py`` builds such a backend in a single
 file.
 
+An extension plugin is the second plugin kind. It derives from
+:class:`ExtensionBasePlugin` (or implements :class:`IExtensionPlugin`
+alone), registers with the same ``register_settings_plugin(...)`` call at
+module import time, and user code reaches it through
+``Settings.get_plugin(...)``; the class of the call is the one and only
+class the extension instance works with. An extension registers no
+attribute and no serializer, and what it offers is entirely its own API —
+this is what keeps ecosystem-oriented functionality (a bridge to another
+library's models, and similar) out of the settings class API.
+
 Three names are shared with the top level, because both audiences need
 them: ``NO_DEFAULT`` and ``REQUIRED`` (custom attributes and serializers
 read these default markers: no default given, and a required member) and
@@ -110,8 +131,10 @@ from advexp.settings._internal.facade_sources import (
     DocumentDynamicSettingsPlugin,
     DynamicSettingAttribute,
     DynamicSettingsBasePlugin,
-    EnvParameter,
+    ExtensionBasePlugin,
     IDynamicSettingsInfo,
+    IExtensionPlugin,
+    IPlugin,
     ISerializerNotificationSink,
     ISettingAttribute,
     ISettingNameDescriber,
@@ -126,9 +149,9 @@ from advexp.settings._internal.facade_sources import (
     SettingsBasePlugin,
     SettingsBaseSerializer,
     SettingsContext,
+    SettingsProfile,
     SourceLink,
     UserFacingError,
-    env_parameter,
     family_entry_key,
     get_dynamic_settings_class_prefix,
     module_default_for,
@@ -136,13 +159,14 @@ from advexp.settings._internal.facade_sources import (
     register_module_default,
     register_source_link_key,
     setting_name_candidates,
+    settings_profile,
     spelled_with_aliases,
 )
 
 __all__ = [
     "UserFacingError",
     "AttributeSerializerBinding",
-    "EnvParameter",
+    "SettingsProfile",
     "SettingsBaseSerializer",
     "DynamicSettingsBasePlugin",
     "DocumentDynamicSettingsPlugin",
@@ -154,7 +178,7 @@ __all__ = [
     "ISettingNameDescriber",
     "ISourceDescriber",
     "SourceLink",
-    "env_parameter",
+    "settings_profile",
     "get_dynamic_settings_class_prefix",
     "register_file_seat",
     "register_source_link_key",
@@ -170,8 +194,11 @@ __all__ = [
     "ISettingAttribute",
     "SettingsAttribute",
     "SettingRef",
+    "IPlugin",
     "ISettingsPlugin",
     "SettingsBasePlugin",
+    "IExtensionPlugin",
+    "ExtensionBasePlugin",
     "LibraryConfiguration",
     "SettingsContext",
     "SETTINGS_CONTEXT_ATTR",

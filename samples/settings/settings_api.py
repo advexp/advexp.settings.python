@@ -23,7 +23,7 @@ The sample walks through the following topics:
 - plain declarations (a bare annotation is a required member, an annotated
   assignment gives a default, ``setting(...)`` is the rich spelling, and
   ``ClassVar`` is not a member at all);
-- a file per environment through ``env_parameter`` (the write lands in the
+- a file per environment through ``settings_profile`` (the write lands in the
   environment that the load read);
 - a default file for the whole module through ``for_this_module`` (a
   declaration that a tool collects by import, without running the code);
@@ -36,6 +36,9 @@ The sample walks through the following topics:
 - value constraints (a taste: the bounds of a member and one rule across
   members; the full tour is ``samples/settings/validation.py``);
 - dict snapshots (``to_dict`` and ``update_from_dict``);
+- the ``missing=`` modes of ``to_dict`` for required members without a
+  value, and the warning that a ``None`` into a member that cannot hold it
+  records;
 - iteration over the declared settings (``to_dict().items()``);
 - access by textual name (``getattr``, ``setattr``, and the checked
   ``update_from_dict``);
@@ -59,6 +62,10 @@ import advexp.settings as adv_settings
 import advexp.settings.plugins.environment.dotenv as env_file
 import advexp.settings.plugins.environment.variables as env
 import advexp.settings.plugins.json_settings as js
+from advexp.settings_base import (
+    SettingDeclarations,
+    json_setting,
+)
 
 # ---------------------------------------------------------------------------
 # adv_settings.Settings classes
@@ -101,7 +108,25 @@ class Endpoint:
         self.url = url
 
 
+# ---------------------------------------------------------------------------
+# Shared declarations: a plain base that both packages inherit
+# ---------------------------------------------------------------------------
+
+
+class AppDeclarations(SettingDeclarations):
+    """Members that the settings class and a configuration class share.
+
+    The base holds what each value is; the inheriting classes configure
+    their own sources. See the docs page "Shared declarations".
+    """
+
+    retries: int = adv_settings.setting(default=3)
+    timeout: int = adv_settings.setting(default=30, ge=retries)
+    port: int = json_setting(default=8080)  # a member of the JSON family
+
+
 class AppSettings(
+    AppDeclarations,
     adv_settings.Settings,
     options=(
         js.json_file(JSON_FILE),
@@ -299,19 +324,21 @@ def main() -> None:
     )
     plain_file.unlink()
 
-    section("a file per environment: env_parameter templates the path")
+    section("a file per environment: settings_profile templates the path")
     # the binding's file may spell slots an environment variable fills;
     # the whitelist guards the variable against a typo, the declared
     # default serves an unset variable, and a save lands in the file of
     # the environment the load read — the values always return to the
     # storage they came from
-    app_env = adv_settings.env_parameter("DEMO_API_APP_ENV", choices=("dev", "prod"), default="dev")
+    profile = adv_settings.settings_profile(
+        "DEMO_API_APP_ENV", choices=("dev", "prod"), default="dev"
+    )
 
     class EnvSettings(
         adv_settings.Settings,
         options=js.json_source(
             file=SAMPLES_DIR / "settings-api-{DEMO_API_APP_ENV}.json",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str = "none"
@@ -531,6 +558,34 @@ def main() -> None:
     # passes the opt-in: foreign keys drop with a debug record
     AppSettings.update_from_dict({"retries": 7, "computed": "extra"}, ignore_unknown=True)
     print(f"retries    = {AppSettings.retries!r} (foreign key ignored)")
+    # a None for a member whose annotation has no None: the value is
+    # stored, and a warning names the member on the package's channel
+    AppSettings.update_from_dict({"retries": None})
+    print(f"retries    = {AppSettings.retries!r} (None stored, a warning named the member)")
+    AppSettings.retries = 7
+
+    section("required members in a snapshot: the missing= modes")
+
+    # a required member that never got a value (a class that was not
+    # loaded) fails to_dict(); the mode says what it becomes instead
+    class BootSettings(
+        adv_settings.Settings,
+        options=env.env_source(),
+    ):
+        token: str = env.environment_variable_setting(name="BOOT_TOKEN")
+        width: int = adv_settings.sourceless_setting(default=800)
+
+    try:
+        BootSettings.to_dict()
+    except adv_settings.MemberLoadError as error:
+        print(f"no mode    -> {type(error).__name__}: {error}")
+    # every required member without a value is exported as None: the dict
+    # keeps every member name, the shape a model with optional fields takes
+    exported = BootSettings.to_dict(missing=adv_settings.MISSING_NONE)
+    print(f"MISSING_NONE = {exported}")
+    # such members are left out: the dict holds what has a value
+    partial = BootSettings.to_dict(missing=adv_settings.MISSING_SKIP)
+    print(f"MISSING_SKIP = {partial}")
 
     section("iterate the declared settings: to_dict().items()")
     # the walk over every declared setting: names in declaration order,
@@ -605,6 +660,8 @@ def main() -> None:
         "(declared)"
     )
     print(f"all of it  = {AppSettings.get_setting_all_metadata(lambda s: s.retries)!r}")
+    # the class listing carries the open channel alone: the service records
+    # (the file bindings among them) stay in the storage, hidden from it
     print(f"all class  = {AppSettings.get_class_all_metadata()!r}")
     # the runtime channel works over the declarations: overrides, adds,
     # deletes; the declaration is the initial state, not a floor
@@ -629,31 +686,64 @@ def main() -> None:
         f"{AppSettings.get_setting_metadata(lambda s: s.mode, 'ui-label')!r} "
         "(stored None)"
     )
-    # contains tells the stored None above from a missing entry; get
-    # returns its default for both
+    # contains tells the stored None above from a missing entry; get with
+    # default=None answers None for both
     print(f"has label? = {AppSettings.contains_setting_metadata(lambda s: s.mode, 'ui-label')}")
     print(f"has mark?  = {AppSettings.contains_setting_metadata(lambda s: s.mode, 'no-such')}")
     print(f"has cfg?   = {AppSettings.contains_class_metadata('config-version')} (declared)")
     AppSettings.delete_setting_metadata(lambda s: s.mode, "ui-label")
+    # a missing entry follows the dictionary rule: without default= the read
+    # raises KeyError that names the way out, with default= the fallback is
+    # served
+    try:
+        AppSettings.get_setting_metadata(lambda s: s.mode, "ui-label")
+    except KeyError as error:
+        print(f"no entry   -> KeyError: {error}")
     print(
-        f"metadata   = {AppSettings.get_setting_metadata(lambda s: s.mode, 'ui-label')!r} "
-        "(after delete)"
+        f"metadata   = "
+        f"{AppSettings.get_setting_metadata(lambda s: s.mode, 'ui-label', 'fallback')!r} "
+        "(the default=)"
+    )
+    # the member's whole bucket goes the same way: the declared entries and
+    # the runtime ones together, with no per-key loop
+    AppSettings.delete_setting_all_metadata(lambda s: s.retries)
+    print(
+        f"all of it  = {AppSettings.get_setting_all_metadata(lambda s: s.retries)!r} (after clear)"
     )
     # a declared entry goes the same way: the declaration seeds the storage
-    # once; it is not brought back
+    # once; it is not brought back, and the read of the gone entry raises
     AppSettings.delete_class_metadata("config-version")
-    print(
-        f"class meta = {AppSettings.get_class_metadata('config-version')!r} "
-        "(the declared entry was deleted)"
-    )
+    try:
+        AppSettings.get_class_metadata("config-version")
+    except KeyError as error:
+        print(f"no config  -> KeyError: {error}")
     # the whole class storage goes with one call, the window entry included
     AppSettings.delete_class_all_metadata()
     print(f"all class  = {AppSettings.get_class_all_metadata()!r} (after clear)")
-    # the file bindings ride the same class metadata: the clear above took
-    # them too, and the imperative spelling puts them back (validated like
-    # every binding write)
+    # the file bindings ride the same class storage: the clear above took
+    # them too, although the listing never showed them — contains answers by
+    # the exact name — and the imperative spelling puts them back (validated
+    # like every binding write)
     AppSettings.set_class_metadata(js.JSON_FILE_METADATA, JSON_FILE)
     AppSettings.set_class_metadata(env_file.DOTENV_FILE_METADATA, DOTENV_FILE)
+    print(
+        f"has json?  = "
+        f"{AppSettings.contains_class_metadata(js.JSON_FILE_METADATA)} (the binding is back)"
+    )
+    # the reset forms bring the declared state back: runtime entries are
+    # dropped, declared entries that were deleted or overridden return. The
+    # state is the snapshot of the class statement, and the service records
+    # (the file bindings above among them) are declared state too: the
+    # imperative re-binding of the last three lines is undone with the rest
+    AppSettings.reset_all_settings_metadata()
+    AppSettings.reset_class_all_metadata()
+    print(
+        f"all of it  = {AppSettings.get_setting_all_metadata(lambda s: s.retries)!r} (after reset)"
+    )
+    print(
+        f"has json?  = "
+        f"{AppSettings.contains_class_metadata(js.JSON_FILE_METADATA)} (the binding is back)"
+    )
     # a member the class does not declare is a typo, not data: rejected
     # loudly instead of storing an entry no backend would ever read
     try:

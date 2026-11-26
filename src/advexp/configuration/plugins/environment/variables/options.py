@@ -18,11 +18,12 @@ from __future__ import annotations
 from typing import Optional
 
 from advexp.configuration.plugin_api import PACKAGE_NAME
-from advexp.configuration.plugins.environment.variables.setting import (
-    EnvironmentVariableSetting,
+from advexp.configuration.plugins.environment.variables.serializer import (
+    EnvironmentVariablesSerializer,
 )
 from advexp.settings_base.environment import NameCase
 from advexp.settings_base.environment_options import environment_options as _environment_options
+from advexp.settings_base.environment_variable_setting import EnvironmentVariableSetting
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.source_link import SourceLink
 
@@ -62,7 +63,10 @@ def env_source(
     if name_prefix is not None or name_case is not None or nested_delimiter is not None:
         extras = _environment_options(name_prefix, name_case, nested_delimiter)
     return SourceBinding(
-        link=SourceLink(attribute_class=EnvironmentVariableSetting),
+        link=SourceLink(
+            attribute_class=EnvironmentVariableSetting,
+            serializer_class=EnvironmentVariablesSerializer,
+        ),
         extras=extras,
         family=PACKAGE_NAME,
     )

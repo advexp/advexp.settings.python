@@ -15,14 +15,16 @@ from advexp.settings.plugin_api import NO_DEFAULT
 from advexp.settings.plugins.yaml_settings import (
     NAME_PATTERN,
     YAML_METADATA_OPTIONS,
-    YAMLSetting,
     YAMLSettingsConfiguration,
     YAMLSettingsSerializer,
-    yaml_setting,
     yaml_source,
 )
 from advexp.settings_base.sources import LINK_NAME_PATTERN_PARAM, YAML_SOURCE_METADATA
 from advexp.settings_base.yaml_options import check_yaml_options
+from advexp.settings_base.yaml_setting import (
+    YAMLSetting,
+    yaml_setting,
+)
 
 
 class ShortKeysSettings(
@@ -200,7 +202,7 @@ def test_runtime_invalid_options_rejected_before_storing():
     ):
         GuardedSettings.set_class_metadata(YAML_METADATA_OPTIONS, {NAME_PATTERN: "{ClassName}"})
     # the previous state stands
-    assert GuardedSettings.get_class_metadata(YAML_METADATA_OPTIONS) is None
+    assert not GuardedSettings.contains_class_metadata(YAML_METADATA_OPTIONS)
 
 
 @pytest.mark.parametrize(
@@ -234,8 +236,11 @@ def test_the_builder_carries_the_pattern_on_its_link():
     entry = dict(yaml_source(name_pattern="{FieldName}"))
     assert set(entry) == {YAML_SOURCE_METADATA}
     link = entry[YAML_SOURCE_METADATA]
-    assert link.param(LINK_NAME_PATTERN_PARAM) == "{FieldName}"
-    assert dict(yaml_source())[YAML_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM) is None
+    assert link.param(LINK_NAME_PATTERN_PARAM, default=None) == "{FieldName}"
+    assert (
+        dict(yaml_source())[YAML_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM, default=None)
+        is None
+    )
 
 
 def test_the_builder_rejects_an_invalid_pattern():

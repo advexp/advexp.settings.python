@@ -12,7 +12,8 @@ settings matrix runs. It covers:
 - constraints;
 - the read-only contract, which closes every write path;
 - snapshots;
-- inheritance.
+- inheritance;
+- the chain probe, which asks the sources about one member without loading.
 
 The ids of the rows in the names of the tests match the manual checklist, so
 the tour is re-run by::
@@ -29,11 +30,17 @@ import logging
 import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import Any, ClassVar, List, Optional
 
 import pytest
+from pydantic import BaseModel
+from pydantic import SecretStr as PydanticSecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from advexp.configuration import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    MISSING_SKIP,
     REQUIRED,
     AggregateLoadError,
     Configuration,
@@ -42,15 +49,17 @@ from advexp.configuration import (
     MemberLoadError,
     MissingValueError,
     SecretStr,
+    SettingDeclarations,
     SourceLoadError,
     Sources,
-    chain_setting,
-    constant_setting,
-    env_parameter,
+    setting,
+    settings_profile,
+    sourceless_setting,
 )
 from advexp.configuration.plugin_api import (
     AttributeSerializerBinding,
     ConfigurationAttribute,
+    ExtensionBasePlugin,
     ISettingAttribute,
     LibraryConfiguration,
     SettingsBasePlugin,
@@ -59,33 +68,45 @@ from advexp.configuration.plugin_api import (
     SourceLink,
     UserFacingError,
 )
-from advexp.configuration.plugins.environment.dotenv import dotenv_setting, dotenv_source
+from advexp.configuration.plugins.environment.dotenv import dotenv_source
 from advexp.configuration.plugins.environment.dotenv.serializer import DotenvSerializer
 from advexp.configuration.plugins.environment.variables import (
     NameCase,
     env_source,
-    environment_variable_setting,
 )
 from advexp.configuration.plugins.environment.variables.serializer import (
     EnvironmentVariablesSerializer,
 )
 from advexp.configuration.plugins.json_settings import (
-    JSONSetting,
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.configuration.plugins.mapping_source import mapping_source, mapping_source_for
+from advexp.configuration.plugins.pydantic import pydantic_source
 from advexp.configuration.plugins.toml_settings import (
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.configuration.plugins.yaml_settings import (
-    yaml_setting,
     yaml_source,
 )
+from advexp.settings_base.dotenv_setting import dotenv_setting
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
 from advexp.settings_base.file_bom import UTF8_BOM
+from advexp.settings_base.json_setting import (
+    JSONSetting,
+    json_setting,
+)
+from advexp.settings_base.not_found import NOT_FOUND
+from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
+from advexp.settings_base.toml_setting import (
+    toml_setting,
+)
+from advexp.settings_base.yaml_setting import (
+    yaml_setting,
+)
 
 
 class Shade(enum.Enum):
@@ -235,9 +256,9 @@ def test_a5_reading_an_optional_member_before_load_serves_the_default():
     assert C.mode == "fallback"
 
 
-def test_a6_constant_setting_is_a_typed_constant():
+def test_a6_sourceless_setting_is_a_typed_constant():
     class C(Configuration):
-        url: str = constant_setting(default="https://api.example")
+        url: str = sourceless_setting(default="https://api.example")
 
     report = C.load_configuration()
 
@@ -269,7 +290,7 @@ def test_b1_unconvertible_default_fails_the_class_statement():
     with pytest.raises(TypeError, match="born"):
 
         class C(Configuration):
-            born: date = constant_setting(default="not-a-date")
+            born: date = sourceless_setting(default="not-a-date")
 
 
 def test_b2_default_none_rejected_by_constraints_fails_the_class():
@@ -278,14 +299,14 @@ def test_b2_default_none_rejected_by_constraints_fails_the_class():
     with pytest.raises(TypeError):
 
         class C(Configuration):
-            member: int = constant_setting(default=None, eq=5)
+            member: int = sourceless_setting(default=None, eq=5)
 
 
 def test_b3_regex_that_does_not_compile_fails_the_declaration():
     with pytest.raises(ValueError):
 
         class C(Configuration):
-            code: str = constant_setting(default="code", regex="(")
+            code: str = sourceless_setting(default="code", regex="(")
 
 
 def test_b4_option_key_declared_on_both_sides_fails_the_class_statement():
@@ -297,7 +318,7 @@ def test_b4_option_key_declared_on_both_sides_fails_the_class_statement():
         ):
             class_metadata = {"shared": 2}
 
-            count: int = constant_setting(default=1)
+            count: int = sourceless_setting(default=1)
 
 
 def test_b5_an_attribute_without_a_link_names_the_fix():
@@ -608,7 +629,7 @@ def test_e3_mixed_run_reports_errors_and_fallbacks_apart(monkeypatch):
 
 def test_e4_clean_load_returns_an_empty_report_and_stays_silent(caplog):
     class C(Configuration):
-        member: int = constant_setting(default=1)
+        member: int = sourceless_setting(default=1)
 
     with caplog.at_level(logging.WARNING, logger="advexp.configuration"):
         report = C.load_configuration()
@@ -826,8 +847,8 @@ def test_g2_cross_rule_violation_on_load_resets_the_participants(tmp_path, caplo
 
 def test_g3_when_gates_the_constraints():
     class C(Configuration):
-        ssl: bool = constant_setting(default=False)
-        port: int = constant_setting(default=80, eq=443, when=ssl)
+        ssl: bool = sourceless_setting(default=False)
+        port: int = sourceless_setting(default=80, eq=443, when=ssl)
 
     report = C.load_configuration()
 
@@ -870,8 +891,8 @@ def test_g5_the_hook_does_not_run_at_class_creation():
     # comparison rules alone; the README's checkpoint wording overstates
     # the hook's reach — it joins from the first load on (tour finding)
     class C(Configuration):
-        mode: str = constant_setting(default="prod")
-        ssl: Optional[str] = constant_setting(default=None)
+        mode: str = sourceless_setting(default="prod")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -994,7 +1015,7 @@ def test_g8_a_required_participant_no_reset_reaches_aborts_the_load(monkeypatch,
 
 def test_h1_class_member_assignment_raises():
     class C(Configuration):
-        mode: str = constant_setting(default="x")
+        mode: str = sourceless_setting(default="x")
 
     with pytest.raises(TypeError, match="read-only"):
         C.mode = "y"
@@ -1002,7 +1023,7 @@ def test_h1_class_member_assignment_raises():
 
 def test_h2_instance_member_writes_and_deletions_raise():
     class C(Configuration):
-        mode: str = constant_setting(default="x")
+        mode: str = sourceless_setting(default="x")
 
     instance = C()
 
@@ -1015,7 +1036,7 @@ def test_h2_instance_member_writes_and_deletions_raise():
 
 def test_h3_to_dict_is_a_frozen_mapping():
     class C(Configuration):
-        mode: str = constant_setting(default="x")
+        mode: str = sourceless_setting(default="x")
 
     snapshot = C.to_dict()
 
@@ -1029,7 +1050,7 @@ def test_h3_to_dict_is_a_frozen_mapping():
 
 def test_h4_to_object_accepts_no_attribute_writes():
     class C(Configuration):
-        mode: str = constant_setting(default="x")
+        mode: str = sourceless_setting(default="x")
 
     state = C.to_object()
 
@@ -1044,7 +1065,7 @@ def test_h4_to_object_accepts_no_attribute_writes():
 
 def test_h5_the_class_has_no_write_back_methods():
     class C(Configuration):
-        mode: str = constant_setting(default="x")
+        mode: str = sourceless_setting(default="x")
 
     write_back = (
         "save_settings",
@@ -1095,6 +1116,54 @@ def test_h7_write_operations_of_every_bundled_source_refuse_loudly():
             serializer.delete("member", None)
 
 
+def test_h8_to_dict_missing_none_exports_required_members_as_none():
+    # a configuration class that was never loaded has nothing to read on
+    # a required member; MISSING_NONE stands None in, and the mapping
+    # keeps every member name — still frozen
+    class C(
+        Configuration,
+        options=env_source(),
+    ):
+        mode: str = environment_variable_setting(name="CMX_H8_MODE")
+        width: int = sourceless_setting(default=800)
+
+    snapshot = C.to_dict(missing=MISSING_NONE)
+
+    assert dict(snapshot) == {"mode": None, "width": 800}
+    with pytest.raises(TypeError):
+        snapshot["mode"] = "x"  # type: ignore[index]
+
+
+def test_h9_to_dict_missing_skip_leaves_required_members_out():
+    # MISSING_SKIP answers "what has a value": the mapping holds the
+    # defaulted members alone
+    class C(
+        Configuration,
+        options=env_source(),
+    ):
+        mode: str = environment_variable_setting(name="CMX_H9_MODE")
+        width: int = sourceless_setting(default=800)
+
+    snapshot = C.to_dict(missing=MISSING_SKIP)
+
+    assert dict(snapshot) == {"width": 800}
+
+
+def test_h10_to_dict_missing_mode_is_validated():
+    # the mode is a named constant, and a typo fails the call up front,
+    # with the error listing every accepted mode
+    class C(Configuration):
+        width: int = sourceless_setting(default=800)
+
+    with pytest.raises(ValueError, match="is not one of") as info:
+        C.to_dict(missing="bogus")
+
+    text = str(info.value)
+    assert repr(MISSING_RAISE) in text
+    assert repr(MISSING_NONE) in text
+    assert repr(MISSING_SKIP) in text
+
+
 # ---------------------------------------------------------------------------
 # I. Inheritance
 # ---------------------------------------------------------------------------
@@ -1110,7 +1179,7 @@ def test_i1_subclass_loads_base_members_into_its_own_storage(monkeypatch):
         mode: str = environment_variable_setting(name="CMX_I1_MODE", default="base-default")
 
     class Child(Base):
-        extra: int = constant_setting(default=1)
+        extra: int = sourceless_setting(default=1)
 
     Child.load_configuration()
 
@@ -1675,17 +1744,17 @@ def test_v7_constraints_a_value_cannot_apply_to_are_violations():
     with pytest.raises(TypeError, match="not comparable"):
 
         class BadOrdering(Configuration):
-            member: object = constant_setting(default="text", gt=0)
+            member: object = sourceless_setting(default="text", gt=0)
 
     with pytest.raises(TypeError, match="no length"):
 
         class BadLength(Configuration):
-            member: int = constant_setting(default=5, min_length=2)
+            member: int = sourceless_setting(default=5, min_length=2)
 
     with pytest.raises(TypeError, match="not a string"):
 
         class BadRegex(Configuration):
-            member: object = constant_setting(default=5, regex=r"\d+")
+            member: object = sourceless_setting(default=5, regex=r"\d+")
 
 
 def test_v8_the_two_checkpoints_a_violation_meets(monkeypatch):
@@ -1693,7 +1762,7 @@ def test_v8_the_two_checkpoints_a_violation_meets(monkeypatch):
     with pytest.raises(TypeError, match="invalid defaults"):
 
         class AtClassCreation(Configuration):
-            member: int = constant_setting(default=0, ge=1)
+            member: int = sourceless_setting(default=0, ge=1)
 
     class C(
         Configuration,
@@ -1897,7 +1966,7 @@ def test_s6_the_mapping_link_speaks_member_names_alone(tmp_path, caplog):
         Configuration,
         options=mapping_source({"host": "map-host", "legacy": "old-host", "foreign": 42}),
     ):
-        host: str = chain_setting(name="HOST", aliases=["OLD_HOST"], default="fallback")
+        host: str = setting(name="HOST", aliases=["OLD_HOST"], default="fallback")
 
     with caplog.at_level(logging.DEBUG, logger="advexp.configuration"):
         C.load_configuration()
@@ -2154,12 +2223,12 @@ def test_p2_an_annotated_assignment_declares_the_default():
     assert C.port == 99
 
 
-def test_p3_chain_setting_carries_constraints_and_default():
+def test_p3_setting_carries_constraints_and_default():
     class C(
         Configuration,
         options=mapping_source({"port": "70000"}),
     ):
-        port: int = chain_setting(ge=1, le=65535, default=8080)
+        port: int = setting(ge=1, le=65535, default=8080)
 
     report = C.load_configuration()
     assert C.port == 8080
@@ -2167,8 +2236,6 @@ def test_p3_chain_setting_carries_constraints_and_default():
 
 
 def test_p4_a_classvar_is_not_a_member():
-    from typing import ClassVar
-
     class C(
         Configuration,
         options=mapping_source({}),
@@ -2182,7 +2249,7 @@ def test_p4_a_classvar_is_not_a_member():
     assert C.token == "declared"
 
 
-def test_p5_a_constant_member_is_immune_to_sources_and_overrides(monkeypatch):
+def test_p5_a_sourceless_member_is_immune_to_sources_and_overrides(monkeypatch):
     monkeypatch.setenv("SCHEMA_VERSION", "v9")
 
     class C(
@@ -2192,7 +2259,7 @@ def test_p5_a_constant_member_is_immune_to_sources_and_overrides(monkeypatch):
             mapping_source({"schema_version": "v3"}),
         ),
     ):
-        schema_version: str = constant_setting(default="v2")
+        schema_version: str = sourceless_setting(default="v2")
 
     C.load_configuration(overrides={"schema_version": "v4"})
     assert C.schema_version == "v2"
@@ -2200,9 +2267,9 @@ def test_p5_a_constant_member_is_immune_to_sources_and_overrides(monkeypatch):
     assert C.schema_version == "v2"
 
 
-def test_p6_a_constant_without_a_value_is_refused():
-    with pytest.raises(TypeError, match="constant_setting.. declares a member"):
-        constant_setting()
+def test_p6_a_sourceless_member_without_a_value_is_refused():
+    with pytest.raises(TypeError, match="sourceless_setting.. declares a member"):
+        sourceless_setting()
 
 
 def test_p7_a_neutral_member_without_a_chain_fails_the_class_statement():
@@ -2215,12 +2282,12 @@ def test_p7_a_neutral_member_without_a_chain_fails_the_class_statement():
             token: str
 
 
-def test_p8_a_constant_member_stays_outside_the_chain():
+def test_p8_a_sourceless_member_stays_outside_the_chain():
     class C(
         Configuration,
         options=mapping_source({}),
     ):
-        url: str = constant_setting(default="https://api.example")
+        url: str = sourceless_setting(default="https://api.example")
 
     C.load_configuration()
     assert C.url == "https://api.example"
@@ -2232,8 +2299,8 @@ def test_p9_one_class_mixes_the_member_spellings():
         options=Sources(env_source(), mapping_source({"token": "map-token"})),
     ):
         token: str  # plain, required, the whole chain
-        host: str = chain_setting(default="h")
-        schema: str = constant_setting(default="v2")
+        host: str = setting(default="h")
+        schema: str = sourceless_setting(default="v2")
 
     C.load_configuration()
     assert C.token == "map-token"
@@ -2241,7 +2308,7 @@ def test_p9_one_class_mixes_the_member_spellings():
     assert C.schema == "v2"
 
 
-def test_p10_chain_setting_names_are_full_addresses_in_named_links(monkeypatch, tmp_path):
+def test_p10_setting_names_are_full_addresses_in_named_links(monkeypatch, tmp_path):
     monkeypatch.delenv("CMX_P10_OLD", raising=False)
     monkeypatch.setenv("CMX_P10_NEW", "renamed")
     app = tmp_path / "p10.json"
@@ -2254,7 +2321,7 @@ def test_p10_chain_setting_names_are_full_addresses_in_named_links(monkeypatch, 
             json_source(file=app, name_pattern="{FieldName}"),
         ),
     ):
-        token: str = chain_setting(name="CMX_P10_NEW", aliases=["CMX_P10_OLD"], default="fallback")
+        token: str = setting(name="CMX_P10_NEW", aliases=["CMX_P10_OLD"], default="fallback")
 
     C.load_configuration()
     assert C.token == "renamed"
@@ -2289,7 +2356,7 @@ def test_o2_override_values_ride_the_conversion_and_constraints():
         options=mapping_source({}),
     ):
         ttl: timedelta = timedelta(minutes=30)
-        port: int = chain_setting(ge=1, le=65535, default=8080)
+        port: int = setting(ge=1, le=65535, default=8080)
 
     C.load_configuration(overrides={"ttl": "2:00:00"})
     assert C.ttl == timedelta(hours=2)
@@ -2314,12 +2381,12 @@ def test_o3_keys_naming_no_member_are_ignored_with_a_debug_record(caplog):
     )
 
 
-def test_o4_constant_members_stay_out_of_the_overrides_reach(caplog):
+def test_o4_sourceless_members_stay_out_of_the_overrides_reach(caplog):
     class C(
         Configuration,
         options=mapping_source({}),
     ):
-        schema_version: str = constant_setting(default="v2")
+        schema_version: str = sourceless_setting(default="v2")
 
     with caplog.at_level(logging.DEBUG, logger="advexp.configuration"):
         C.load_configuration(overrides={"schema_version": "v9"})
@@ -2327,7 +2394,7 @@ def test_o4_constant_members_stay_out_of_the_overrides_reach(caplog):
     assert any("which cannot be overridden" in record.getMessage() for record in caplog.records)
 
 
-# -- T. Path parameters (#74) ------------------------------------------------
+# -- T. Settings profiles (#74) ------------------------------------------------
 #
 # A file link may spell its file as a template an environment variable
 # fills; the rows walk the switching itself, the miss and the loud
@@ -2343,14 +2410,14 @@ def test_t1_a_templated_link_reads_the_file_of_its_environment(monkeypatch, tmp_
     (tmp_path / "settings-prod.json").write_text(
         json.dumps({"token": "prod-token"}), encoding="utf-8"
     )
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class C(
         Configuration,
         options=json_source(
             file=tmp_path / "settings-{APP_ENV}.json",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2368,7 +2435,7 @@ def test_t2_a_whitelisted_environment_without_a_file_is_a_plain_miss(monkeypatch
     # a valid value over a missing file walks down the chain as any miss
     base = tmp_path / "app.json"
     base.write_text(json.dumps({"token": "base-token"}), encoding="utf-8")
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class C(
         Configuration,
@@ -2376,7 +2443,7 @@ def test_t2_a_whitelisted_environment_without_a_file_is_a_plain_miss(monkeypatch
             json_source(
                 file=tmp_path / "settings-{APP_ENV}.json",
                 name_pattern="{FieldName}",
-                parameters=app_env,
+                settings_profile=profile,
             ),
             json_source(file=base, name_pattern="{FieldName}"),
         ),
@@ -2393,7 +2460,7 @@ def test_t3_an_unset_variable_without_a_default_breaks_the_link(monkeypatch, tmp
     # and the links below never mask the broken one
     below = tmp_path / "app.json"
     below.write_text(json.dumps({"token": "base-token"}), encoding="utf-8")
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class C(
         Configuration,
@@ -2401,7 +2468,7 @@ def test_t3_an_unset_variable_without_a_default_breaks_the_link(monkeypatch, tmp
             json_source(
                 file=tmp_path / "settings-{APP_ENV}.json",
                 name_pattern="{FieldName}",
-                parameters=app_env,
+                settings_profile=profile,
             ),
             json_source(file=below),
         ),
@@ -2419,14 +2486,14 @@ def test_t4_an_unset_variable_resolves_through_the_declared_default(monkeypatch,
     (tmp_path / "settings-dev.json").write_text(
         json.dumps({"token": "dev-token"}), encoding="utf-8"
     )
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"), default="dev")
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"), default="dev")
 
     class C(
         Configuration,
         options=json_source(
             file=tmp_path / "settings-{APP_ENV}.json",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2439,14 +2506,14 @@ def test_t4_an_unset_variable_resolves_through_the_declared_default(monkeypatch,
 def test_t5_a_value_outside_the_whitelist_fails_loudly(monkeypatch, tmp_path):
     # the typo is the loudest failure of the family: without the whitelist
     # check it would be a missing file, and the chain would walk past it
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class C(
         Configuration,
         options=json_source(
             file=tmp_path / "settings-{APP_ENV}.json",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2463,14 +2530,14 @@ def test_t6_each_pass_resolves_anew_and_records_the_file_it_read(monkeypatch, tm
     (tmp_path / "settings-dev.json").write_text(
         json.dumps({"token": "dev-token", "host": "dev-host"}), encoding="utf-8"
     )
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class C(
         Configuration,
         options=json_source(
             file=tmp_path / "settings-{APP_ENV}.json",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2496,14 +2563,14 @@ def test_t7_slot_renames_the_slot_the_template_spells(monkeypatch, tmp_path):
     (tmp_path / "settings-dev.json").write_text(
         json.dumps({"token": "dev-token"}), encoding="utf-8"
     )
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"), slot="env")
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"), slot="env")
 
     class C(
         Configuration,
         options=json_source(
             file=tmp_path / "settings-{env}.json",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2515,32 +2582,32 @@ def test_t7_slot_renames_the_slot_the_template_spells(monkeypatch, tmp_path):
 
 def test_t8_the_builder_check_runs_in_both_directions():
     # a slot no parameter declares leaves the path unresolvable — with
-    # parameters= absent altogether included; a parameter no slot reads
+    # settings_profile= absent altogether included; a profile no slot reads
     # declares a variable nothing reads; a name mismatch is the first of
     # the two the call names. All are spelling mistakes the builder call
     # refuses
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
-    with pytest.raises(TypeError, match="no env_parameter declares"):
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
+    with pytest.raises(TypeError, match="no settings_profile declares"):
         json_source(file="settings-{APP_ENV}.json")
     with pytest.raises(TypeError, match="no slot in the template uses them"):
-        json_source(file="settings.json", parameters=app_env)
+        json_source(file="settings.json", settings_profile=profile)
     with pytest.raises(
-        TypeError, match=r"uses the slot\(s\) \{OTHER\} in its template, but no env_parameter"
+        TypeError, match=r"uses the slot\(s\) \{OTHER\} in its template, but no settings_profile"
     ):
-        json_source(file="settings-{OTHER}.json", parameters=app_env)
+        json_source(file="settings-{OTHER}.json", settings_profile=profile)
 
 
-def test_t9_env_parameter_refuses_an_unusable_declaration():
+def test_t9_settings_profile_refuses_an_unusable_declaration():
     # no whitelist is the typo door left open; a default outside it and a
     # repeated value are declaration mistakes the builder names
     with pytest.raises(TypeError, match="declares no allowed values"):
-        env_parameter("APP_ENV", choices=())
+        settings_profile("APP_ENV", choices=())
     with pytest.raises(TypeError, match="not one of the declared choices"):
-        env_parameter("APP_ENV", choices=("dev", "prod"), default="test")
+        settings_profile("APP_ENV", choices=("dev", "prod"), default="test")
     with pytest.raises(TypeError, match="contains a duplicate value"):
-        env_parameter("APP_ENV", choices=("dev", "dev"))
+        settings_profile("APP_ENV", choices=("dev", "dev"))
     with pytest.raises(TypeError, match="expects a slot name"):
-        env_parameter("APP_ENV", choices=("dev",), slot="not a slot")
+        settings_profile("APP_ENV", choices=("dev",), slot="not a slot")
 
 
 def test_t10_a_bare_file_keeps_the_unparameterized_behaviour(tmp_path):
@@ -2564,7 +2631,7 @@ def test_t11_the_file_families_take_parameters_each(monkeypatch, tmp_path):
     # dotenv and TOML links unfold their files the JSON way
     (tmp_path / "env-dev").write_text("CMX_T11_TOKEN=dotenv-token\n", encoding="utf-8")
     (tmp_path / "conf-dev.toml").write_text('token = "toml-token"\n', encoding="utf-8")
-    app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+    profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
     class FromDotenv(
         Configuration,
@@ -2572,7 +2639,7 @@ def test_t11_the_file_families_take_parameters_each(monkeypatch, tmp_path):
             file=tmp_path / "env-{APP_ENV}",
             name_prefix="CMX_T11_",
             name_case=NameCase.UPPER,
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2582,7 +2649,7 @@ def test_t11_the_file_families_take_parameters_each(monkeypatch, tmp_path):
         options=toml_source(
             file=tmp_path / "conf-{APP_ENV}.toml",
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
     ):
         token: str
@@ -2752,8 +2819,31 @@ def test_l5_every_write_of_the_collection_refuses(tmp_path):
         reader.set_setting("dark_mode", True)
     with pytest.raises(TypeError, match="read-only"):
         reader.save_settings()
-    with pytest.raises(TypeError, match="has no setting metadata"):
-        reader.get_setting_metadata("dark_mode", "k")
+
+
+def test_l9_the_reader_collection_carries_runtime_metadata(tmp_path):
+    # the entries of the read group carry the reader's own runtime
+    # annotations: same six methods as the writer's collection, and the next
+    # load clears them with the rebuild
+    from advexp.configuration.plugins.json_dynamic_settings import JSONDynamicSettingsPlugin
+
+    class Reader(
+        Configuration,
+        options=json_source(file=tmp_path / "l9.json", dynamic_of="app.Writer"),
+    ):
+        pass
+
+    path = tmp_path / "l9.json"
+    path.write_text(json.dumps({"dynamic": {"app.Writer": {"dark_mode": True}}}), encoding="utf-8")
+
+    reader = Reader.get_plugin(JSONDynamicSettingsPlugin)
+    reader.load_configuration()
+    reader.set_setting_metadata("dark_mode", "ui-hint", "switch")
+    assert reader.get_setting_metadata("dark_mode", "ui-hint") == "switch"
+
+    path.write_text(json.dumps({"dynamic": {"app.Writer": {"dark_mode": False}}}), encoding="utf-8")
+    reader.load_configuration()
+    assert reader.get_setting_all_metadata("dark_mode") == {}
 
 
 def test_l6_a_class_without_a_group_names_the_binding_in_the_error(tmp_path):
@@ -3020,3 +3110,574 @@ def test_y9_the_yaml_reader_loads_the_group_the_settings_package_wrote(tmp_path)
     writer.set_setting("dark_mode", True)
     writer.save_settings()
     assert app.read_text(encoding="utf-8") == (f"dynamic:\n  {group}:\n    dark_mode: true\n")
+
+
+# Q. The pydantic model source
+
+
+def test_q1_the_class_form_constructs_the_model_on_every_load(monkeypatch):
+    class M(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="APP_")
+
+        token: str = "none"
+
+    class C(
+        Configuration,
+        options=pydantic_source(M),
+    ):
+        token: str = "fallback"
+
+    monkeypatch.setenv("APP_TOKEN", "first")
+    C.load_configuration()
+    assert C.token == "first"
+
+    monkeypatch.setenv("APP_TOKEN", "second")
+    C.load_configuration()
+    assert C.token == "second"
+
+
+def test_q2_the_instance_form_freezes_the_values(monkeypatch):
+    monkeypatch.setenv("APP_TOKEN", "first")
+
+    class M(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="APP_")
+
+        token: str = "none"
+
+    class C(
+        Configuration,
+        options=pydantic_source(M()),
+    ):
+        token: str = "fallback"
+
+    monkeypatch.setenv("APP_TOKEN", "second")
+    C.load_configuration()
+    assert C.token == "first"
+
+
+def test_q3_the_dictionary_speaks_member_names_alone(caplog):
+    class M(BaseModel):
+        host: str = "model-host"
+        foreign: str = "not-a-member"
+
+    class C(
+        Configuration,
+        options=pydantic_source(M),
+    ):
+        host: str = setting(name="HOST", default="fallback")
+
+    with caplog.at_level(logging.DEBUG, logger="advexp.configuration"):
+        C.load_configuration()
+    assert C.host == "model-host"
+    assert any("does not match any member" in r.getMessage() for r in caplog.records)
+
+
+def test_q4_secret_fields_arrive_unwrapped():
+    class M(BaseModel):
+        password: PydanticSecretStr = PydanticSecretStr("hunter2")
+
+    class Plain(
+        Configuration,
+        options=pydantic_source(M),
+    ):
+        password: str
+
+    class Wrapped(
+        Configuration,
+        options=pydantic_source(M),
+    ):
+        password: SecretStr
+
+    Plain.load_configuration()
+    Wrapped.load_configuration()
+    assert Plain.password == "hunter2"
+    assert Wrapped.password.get_secret_value() == "hunter2"
+
+
+def test_q5_a_model_that_cannot_construct_fails_the_member_it_reached(monkeypatch):
+    monkeypatch.delenv("APP_TOKEN", raising=False)
+    monkeypatch.setenv("APP_PORT", "9000")
+
+    class M(BaseSettings):
+        model_config = SettingsConfigDict(env_prefix="APP_")
+
+        token: str
+
+    class Served(
+        Configuration,
+        options=Sources(
+            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+            pydantic_source(M),
+        ),
+    ):
+        port: int = 0
+
+    # the member served by the environment loads: no member reached the
+    # model, so the model that cannot construct never did
+    Served.load_configuration()
+    assert Served.port == 9000
+
+    class Reaching(
+        Configuration,
+        options=Sources(
+            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+            pydantic_source(M),
+        ),
+    ):
+        port: int = 0
+        token: str = "fallback"
+
+    # the optional member has a default that would mask the condition, so
+    # the model's validation error propagates as-is, the corrupt-file way
+    with pytest.raises(ValueError, match="cannot construct the pydantic model"):
+        Reaching.load_configuration()
+
+
+def test_q6_the_link_obeys_the_chain_order(monkeypatch):
+    monkeypatch.setenv("APP_TOKEN", "from-env")
+
+    # a plain model, so that its own value is fixed: a BaseSettings would
+    # resolve the same variable itself, and the two links would agree
+    class M(BaseModel):
+        token: str = "from-model"
+
+    class Above(
+        Configuration,
+        options=Sources(
+            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+            pydantic_source(M),
+        ),
+    ):
+        token: str = "fallback"
+
+    class Below(
+        Configuration,
+        options=Sources(
+            pydantic_source(M),
+            env_source(name_prefix="APP_", name_case=NameCase.UPPER),
+        ),
+    ):
+        token: str = "fallback"
+
+    Above.load_configuration()
+    Below.load_configuration()
+    assert Above.token == "from-env"
+    assert Below.token == "from-model"
+
+
+def test_q7_native_values_and_nested_models_survive():
+    # the model's values differ from DbConfig's defaults on purpose: an
+    # assertion against the defaults alone would pass with no conversion
+    class Nested(BaseModel):
+        host: str = "db.internal"
+        port: int = 64000
+
+    class M(BaseModel):
+        db: Nested = Nested()
+
+    class C(
+        Configuration,
+        options=pydantic_source(M),
+    ):
+        db: DbConfig = DbConfig()
+
+    C.load_configuration()
+    assert C.db == DbConfig(host="db.internal", port=64000)
+
+
+# ---------------------------------------------------------------------------
+# U. Extension plugins: the second plugin kind
+# ---------------------------------------------------------------------------
+
+
+class MatrixExtension(ExtensionBasePlugin):
+    """The extension of the matrix rows: one operation over one class."""
+
+    @property
+    def plugin_name(self) -> str:
+        return "matrix-extension"
+
+    def configuration_class_name(self) -> str:
+        """A plugin-specific operation served by the bound context."""
+        return self.context.settings_class.__name__
+
+
+LibraryConfiguration.register_settings_plugin(MatrixExtension)
+
+
+def test_u1_registration_makes_the_extension_reachable_and_adds_no_serializer():
+    # the registration of an extension is the plugin alone: nothing lands
+    # in the attribute-to-serializer registry, and the class becomes
+    # reachable through get_plugin
+    class RowExtension(ExtensionBasePlugin):
+        @property
+        def plugin_name(self) -> str:
+            return "row-extension"
+
+    before = set(LibraryConfiguration._attribute_serializers)
+    LibraryConfiguration.register_settings_plugin(RowExtension)
+    assert set(LibraryConfiguration._attribute_serializers) == before
+
+    class RowConfiguration(Configuration):
+        pass
+
+    assert isinstance(RowConfiguration.get_plugin(RowExtension), RowExtension)
+
+
+def test_u2_the_bound_context_serves_the_extensions_operation():
+    # the class of the get_plugin call is the class the instance works
+    # with: the context is the class's own, the operation reads it, and
+    # another class gets its own instance
+    class FirstConfiguration(Configuration):
+        pass
+
+    class SecondConfiguration(Configuration):
+        pass
+
+    first = FirstConfiguration.get_plugin(MatrixExtension)
+    assert first.context is FirstConfiguration.__settings_context__
+    assert first.configuration_class_name() == "FirstConfiguration"
+
+    second = SecondConfiguration.get_plugin(MatrixExtension)
+    assert first is not second
+    assert second.configuration_class_name() == "SecondConfiguration"
+
+
+def test_u3_a_declared_binding_fails_the_class_statement():
+    # an extension declares no storage: the binding declaration is
+    # refused at the class statement, naming the class
+    with pytest.raises(TypeError, match="MatrixBoundExtension is an extension plugin"):
+
+        class MatrixBoundExtension(ExtensionBasePlugin):
+            binding = AttributeSerializerBinding(ConfigurationAttribute, SettingsBaseSerializer)
+
+            @property
+            def plugin_name(self) -> str:
+                return "matrix-bound"
+
+
+# ---------------------------------------------------------------------------
+# W. Shared declarations: a declaration base for both packages (#105)
+# ---------------------------------------------------------------------------
+
+
+def test_w1_members_of_a_marked_base_read_through_the_chain(tmp_path):
+    path = tmp_path / "w1.json"
+    path.write_text('{"W1_port": 9000, "W1_retries": 7}', encoding="utf-8")
+
+    class App(SettingDeclarations):
+        retries = setting(default=3, name="W1_retries")
+        port = json_setting(name="W1_port", default=8080)
+
+    class W1(
+        App,
+        Configuration,
+        options=Sources(json_source(file=path)),
+    ):
+        pass
+
+    W1.load_configuration()
+    assert W1.retries == 7
+    assert W1.port == 9000
+
+
+def test_w2_a_family_member_without_its_link_is_refused():
+
+    class App(SettingDeclarations):
+        port = json_setting(name="W2_port", default=8080)
+
+    with pytest.raises(TypeError, match="W2.port is declared with JSONSetting, but the class's"):
+
+        class W2(
+            App,
+            Configuration,
+            options=Sources(env_source()),
+        ):
+            pass
+
+
+def test_w3_a_body_reference_turns_onto_the_poured_copy(tmp_path):
+    path = tmp_path / "w3.json"
+    path.write_text('{"W3_low": 5, "W3_high": 10}', encoding="utf-8")
+
+    class App(SettingDeclarations):
+        low = json_setting(name="W3_low", default=0)
+
+    class W3(
+        App,
+        Configuration,
+        options=Sources(json_source(file=path)),
+    ):
+        high = json_setting(name="W3_high", default=10, ge=App.low)
+
+    W3.load_configuration()
+    assert W3.high == 10
+
+    # a violating file value is the cross-member violation of the load: the
+    # pass resets the member to its default and reports it
+    path.write_text('{"W3_low": 5, "W3_high": 4}', encoding="utf-8")
+    report = W3.load_configuration()
+    assert W3.high == 10
+    assert "greater than or equal" in str(report)
+
+
+def test_w4_the_body_wins_and_a_neutral_member_needs_the_chain(tmp_path):
+    path = tmp_path / "w4.json"
+
+    class App(SettingDeclarations):
+        retries: int = 3
+
+    class W4(
+        App,
+        Configuration,
+        options=Sources(json_source(file=path)),
+    ):
+        retries: int = 9  # the body's own declaration
+
+    W4.load_configuration()
+    assert W4.retries == 9
+
+    with pytest.raises(TypeError, match="W4b.bare is a neutral member, but the class declares"):
+
+        class W4b(App, Configuration):  # no chain: a neutral member has nothing to read
+            bare = setting(default=1)
+
+
+def test_w5_one_base_serves_both_packages_in_one_process(tmp_path):
+    path = tmp_path / "w5.json"
+    path.write_text('{"W5_port": 9000}', encoding="utf-8")
+
+    class App(SettingDeclarations):
+        port = json_setting(name="W5_port", default=8080)
+
+    class W5(
+        App,
+        Configuration,
+        options=Sources(json_source(file=path)),
+    ):
+        pass
+
+    from advexp.settings import Settings
+    from advexp.settings.plugins.json_settings import (
+        json_source as settings_json_source,
+    )
+
+    class B(
+        App,
+        Settings,
+        options=settings_json_source(file=path),
+    ):
+        pass
+
+    W5.load_configuration()
+    B.load_settings()
+    assert W5.port == B.port == 9000
+
+
+# ---------------------------------------------------------------------------
+# X. Metadata: the facade channel (#110)
+# ---------------------------------------------------------------------------
+
+
+def test_x1_declared_metadata_reads_through_the_facade():
+    class X1(Configuration):
+        class_metadata = {"config-version": 2}
+
+        mode: str = sourceless_setting(default="production", metadata={"ui-label": "Mode"})
+
+    assert X1.get_setting_metadata("mode", "ui-label") == "Mode"
+    assert X1.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+    assert X1.get_class_all_metadata() == {"config-version": 2}
+
+
+def test_x2_the_runtime_layer_works_over_the_declarations():
+    class X2(Configuration):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    X2.set_setting_metadata("mode", "hint", "Runtime hint")
+    assert X2.contains_setting_metadata("mode", "hint")
+    assert X2.get_setting_all_metadata("mode") == {"ui-label": "Mode", "hint": "Runtime hint"}
+
+    # the whole bucket of the member goes at once, declared entries included,
+    # and nothing comes back
+    assert X2.delete_setting_all_metadata("mode") is None
+    assert X2.get_setting_all_metadata("mode") == {}
+
+
+def test_x3_metadata_resolves_along_the_inheritance_chain():
+    class Base(Configuration):
+        class_metadata = {"shared": "base"}
+
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    class Child(Base):
+        class_metadata = {"own": "child"}
+
+    assert Child.get_class_all_metadata() == {"shared": "base", "own": "child"}
+    assert Base.get_setting_metadata("mode", "ui-label") == "Mode"
+
+    Base.set_class_metadata("runtime", 1)
+    assert Child.get_class_metadata("runtime") == 1
+    assert Base.get_class_metadata("runtime") == 1
+
+
+def test_x4_the_channel_stands_apart_from_the_load(monkeypatch):
+    class X4(
+        Configuration,
+        options=env_source(),
+    ):
+        class_metadata = {"origin": "seed"}
+        mode: str = environment_variable_setting(default="x", metadata={"ui-label": "Mode"})
+
+    monkeypatch.setenv("mode", "from-env")
+    X4.set_setting_metadata("mode", "hint", "Runtime hint")
+    X4.delete_class_metadata("origin")
+
+    X4.load_configuration()
+
+    assert X4.mode == "from-env"
+    assert X4.get_setting_all_metadata("mode") == {"ui-label": "Mode", "hint": "Runtime hint"}
+    assert not X4.contains_class_metadata("origin")
+
+
+def test_x5_service_records_stay_out_of_the_listing():
+    class X5(
+        Configuration,
+        options=env_source(),
+    ):
+        class_metadata = {"origin": "seed"}
+
+    # the snapshot lists the open channel alone; the source chain stays in
+    # the storage, addressable by its flat name
+    assert X5.get_class_all_metadata() == {"origin": "seed"}
+    assert X5.contains_class_metadata(SOURCE_CHAIN_METADATA)
+
+
+def test_x6_reset_restores_the_declared_state():
+    class X6(
+        Configuration,
+        options=env_source(),
+    ):
+        class_metadata = {"origin": "seed"}
+        mode: str = environment_variable_setting(default="x", metadata={"ui-label": "Mode"})
+
+    X6.set_setting_metadata("mode", "hint", "Runtime hint")
+    # the clear takes the hidden source chain with the free entries
+    X6.delete_class_all_metadata()
+
+    X6.reset_setting_all_metadata("mode")
+    X6.reset_class_all_metadata()
+
+    assert X6.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+    assert X6.get_class_all_metadata() == {"origin": "seed"}
+    # the service entry of the chain is declared state: it came back too
+    assert X6.contains_class_metadata(SOURCE_CHAIN_METADATA)
+
+
+def test_x7_a_missing_entry_follows_the_dictionary_rule():
+    class X7(Configuration):
+        class_metadata = {"origin": "seed"}
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    X7.delete_class_metadata("origin")
+    with pytest.raises(KeyError, match="available metadata: none"):
+        X7.get_class_metadata("origin")
+    assert X7.get_class_metadata("origin", "fallback") == "fallback"
+    assert not X7.contains_class_metadata("origin")
+
+
+# ---------------------------------------------------------------------------
+# Z. The chain probe: contains_member (#112)
+# ---------------------------------------------------------------------------
+
+
+class ProbeFailingAttribute(ConfigurationAttribute):
+    """A test source family: the contains probe fails on demand."""
+
+
+class ProbeFailingSerializer(SettingsBaseSerializer):
+    """Raises on ``contains`` in the way the enclosing test picks.
+
+    ``kind_contains`` chooses what the probe meets: ``"plain"`` raises a
+    runtime error, ``"facing"`` raises a user-facing wrapper, and ``None``
+    answers quietly.
+    """
+
+    kind_contains: ClassVar[Optional[str]] = None
+
+    @staticmethod
+    def _raise(kind: Optional[str]) -> None:
+        if kind == "plain":
+            raise RuntimeError("contains boom")
+        if kind == "facing":
+            raise UserFacingError(ValueError("contains inner"))
+
+    def load(self, setting_name: str, attr: Optional[ISettingAttribute]) -> Any:
+        return NOT_FOUND
+
+    def save(self, setting_name: str, attr: Optional[ISettingAttribute], value: Any) -> None:
+        """No-op: a test source never writes."""
+
+    def delete(self, setting_name: str, attr: Optional[ISettingAttribute]) -> None:
+        """No-op: a test source never deletes."""
+
+    def contains(self, setting_name: str, attr: Optional[ISettingAttribute]) -> bool:
+        self._raise(self.kind_contains)
+        return False
+
+
+class ProbeFailingPlugin(SettingsBasePlugin):
+    """A test source plugin that binds the failing-probe pair."""
+
+    binding = AttributeSerializerBinding(ProbeFailingAttribute, ProbeFailingSerializer)
+
+    @property
+    def plugin_name(self) -> str:
+        return "MatrixProbeFailingSource"
+
+
+LibraryConfiguration.register_settings_plugin(ProbeFailingPlugin)
+
+
+def probe_failing_setting(**kwargs: Any) -> Any:
+    return ProbeFailingAttribute(**kwargs)
+
+
+def probe_failing_link() -> Any:
+    # the third-party source's own chain spelling: a link of its family
+    return SourceBinding(SourceLink(attribute_class=ProbeFailingAttribute))
+
+
+def test_z1_the_probe_answers_by_the_first_link_holding_a_value(monkeypatch):
+    class Z1(
+        Configuration,
+        options=Sources(env_source(), mapping_source()),
+    ):
+        token: str = "fallback"
+        port: int = 8080
+
+    assert Z1.contains_member("token") is False  # the whole chain holds nothing
+    monkeypatch.setenv("token", "env-token")
+    assert Z1.contains_member("token") is True  # the first link answers
+    assert Z1.token == "fallback"  # the probe built no state
+
+    mapping_source_for(Z1).set({"port": 9000})
+    assert Z1.contains_member("port") is True  # a deeper link answers too
+    assert Z1.port == 8080
+
+
+def test_z2_source_errors_of_the_probe_arrive_plain_and_unwrapped(monkeypatch):
+    class Z2(
+        Configuration,
+        options=Sources(probe_failing_link(), env_source()),
+    ):
+        member: str = probe_failing_setting(default="stored-value")
+
+    monkeypatch.setattr(ProbeFailingSerializer, "kind_contains", "plain")
+    with pytest.raises(RuntimeError, match="contains boom"):
+        Z2.contains_member("member")
+
+    monkeypatch.setattr(ProbeFailingSerializer, "kind_contains", "facing")
+    with pytest.raises(ValueError, match="contains inner") as info:
+        Z2.contains_member("member")
+    assert isinstance(info.value.__cause__, UserFacingError)

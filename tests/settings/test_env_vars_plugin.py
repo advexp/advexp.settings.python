@@ -13,14 +13,16 @@ from typing import Optional
 import pytest
 
 from advexp.settings import LibraryConfiguration, Settings
-
-# noinspection PyProtectedMember
-from advexp.settings._internal.non_storage_setting import non_storage_setting
 from advexp.settings.plugins.environment.variables import (
-    EnvironmentVariableSetting,
     EnvironmentVariablesPlugin,
+)
+from advexp.settings_base.environment_variable_setting import (
+    EnvironmentVariableSetting,
     environment_variable_setting,
 )
+
+# noinspection PyProtectedMember
+from advexp.settings_base.sourceless_setting import sourceless_setting
 
 _ENV_NAMES = (
     "TEST_ASV_TEXT",
@@ -39,7 +41,11 @@ class EnvSettings(Settings):
     flag: bool = environment_variable_setting(name="TEST_ASV_FLAG", default=False)
     count: int = environment_variable_setting(name="TEST_ASV_COUNT", default=0)
     when: Optional[datetime] = environment_variable_setting(name="TEST_ASV_WHEN", default=None)
-    plain: str = environment_variable_setting()  # falls back to the member name
+    # Optional[str]: this storage has no null form, so None (unset) is a
+    # regular value of the member
+    plain: Optional[str] = environment_variable_setting(
+        default=None
+    )  # falls back to the member name
 
 
 @dataclasses.dataclass
@@ -62,7 +68,9 @@ def clean_env(monkeypatch):
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    factory = LibraryConfiguration._get_serializer_factory(EnvironmentVariableSetting)
+    factory = LibraryConfiguration._get_serializer_factory(
+        EnvironmentVariableSetting, "advexp.settings"
+    )
     assert factory is not None
     # the base attribute class itself stays unregistered
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
@@ -294,7 +302,7 @@ def test_mixed_attributes_use_their_own_serializers():
     # member reads its variable, the in-memory member re-declares its default
     class Mixed(Settings):
         text: str = environment_variable_setting(name="TEST_ASV_TEXT", default="env-default")
-        local_only: bool = non_storage_setting(default=False)
+        local_only: bool = sourceless_setting(default=False)
 
     Mixed.local_only = True
     Mixed.load_settings()

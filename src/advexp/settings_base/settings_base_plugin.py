@@ -14,7 +14,7 @@ from it is the easiest way to write a plugin, not a requirement.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, ClassVar, Optional, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from advexp.settings_base.attribute_serializer_binding import AttributeSerializerBinding
 from advexp.settings_base.library_configuration import LibraryConfiguration
@@ -22,9 +22,6 @@ from advexp.settings_base.settings_plugin_interface import ISettingsPlugin
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
     from advexp.settings_base.context import SettingsContext
-
-PluginT = TypeVar("PluginT", bound=ISettingsPlugin)
-"""The plugin class a ``get_plugin`` call requests; the call returns its instance."""
 
 
 class SettingsBasePlugin(ISettingsPlugin):
@@ -39,6 +36,15 @@ class SettingsBasePlugin(ISettingsPlugin):
     """
 
     binding: ClassVar[Optional[AttributeSerializerBinding]] = None
+
+    family: ClassVar[Optional[str]] = None
+    """The distribution family that registers this plugin's binding, if any.
+
+    ``None`` for a plugin of its own: its slot answers every family. A plugin
+    of a distribution that shares a member class with the other distribution
+    (the member classes of ``advexp.settings_base.family_members``) spells its
+    package name, so the one shared class carries the serializer of each
+    distribution in its own slot."""
     """The declarative attribute-to-serializer binding.
 
     Registered by the base :meth:`setup` when the plugin is registered. A
@@ -61,13 +67,13 @@ class SettingsBasePlugin(ISettingsPlugin):
         if not isinstance(cls.binding, AttributeSerializerBinding):
             raise TypeError(f"{cls.__name__}.binding must be an AttributeSerializerBinding")
         LibraryConfiguration.register_settings_attribute(
-            cls.binding.attribute_class, cls.binding.serializer_class
+            cls.binding.attribute_class, cls.binding.serializer_class, family=cls.family
         )
 
     def __init__(self) -> None:
         self.__context: Optional[SettingsContext] = None
 
-    # -- ISettingsPlugin -------------------------------------------------------
+    # -- IPlugin ---------------------------------------------------------------
 
     @property
     def context(self) -> SettingsContext:

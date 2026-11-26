@@ -40,22 +40,27 @@ runtime, but type checkers report a type mismatch for it (see
 """
 
 from advexp.settings.plugins.json_settings.configuration import JSONSettingsConfiguration
-from advexp.settings.plugins.json_settings.options import json_file, json_source
+from advexp.settings.plugins.json_settings.options import (
+    json_dynamic_file,
+    json_file,
+    json_source,
+)
 from advexp.settings.plugins.json_settings.plugin import JSONSettingsPlugin
 from advexp.settings.plugins.json_settings.serializer import JSONSettingsSerializer
-from advexp.settings.plugins.json_settings.setting import JSONSetting, json_setting
 from advexp.settings_base.json_file import JSON_FILE_METADATA
 from advexp.settings_base.json_options import JSON_METADATA_OPTIONS, NAME_PATTERN
+from advexp.settings_base.json_setting import JSONSetting, json_setting
 
 __all__ = [
     "JSON_FILE_METADATA",
     "JSON_METADATA_OPTIONS",
-    "JSONSetting",
     "JSONSettingsConfiguration",
     "JSONSettingsPlugin",
     "JSONSettingsSerializer",
     "NAME_PATTERN",
+    "json_dynamic_file",
     "json_file",
+    "JSONSetting",
     "json_setting",
     "json_source",
 ]

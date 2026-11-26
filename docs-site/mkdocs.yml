@@ -4,11 +4,20 @@ site_description: Typed application settings and configuration with pluggable ba
 repo_url: https://github.com/advexp/advexp.settings.python
 repo_name: advexp.settings.python
 
+# The API reference pages are rendered by mkdocstrings from the shared
+# source tree outside the docs directory; without this entry preview
+# builds would not react to docstring changes.
+watch:
+  - ../src
+
 extra_css:
   - stylesheets/extra.css
 
 theme:
   name: material
+  # The classic variant keeps the Material for MkDocs look; "modern" is
+  # Zensical's redesigned UI.
+  variant: classic
   custom_dir: overrides
   language: en
   features:
@@ -54,6 +63,8 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.superfences
   - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.tasklist:
       custom_checkbox: true
 
@@ -97,12 +108,14 @@ nav:
   - Guide:
       - Backends: backends.md
       - Value types: value-types.md
+      - Shared declarations: shared-declarations.md
       - Validation: validation.md
       - Snapshots: snapshots.md
       - Metadata: metadata.md
       - Dynamic settings: dynamic-settings.md
       - Extending: extending.md
       - Switching: switching.md
+      - Migrating from pydantic-settings: migrating-from-pydantic-settings.md
       - Samples: samples.md
   - API reference:
       - Overview: api/index.md

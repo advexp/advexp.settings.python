@@ -10,9 +10,7 @@ reduces each facade to a single import from this package, and it lists the
 whole public surface explicitly in one place.
 """
 
-from advexp.settings._internal.non_storage_setting import non_storage_setting
 from advexp.settings._internal.package_name import PACKAGE_NAME
-from advexp.settings._internal.setting import Setting, setting
 from advexp.settings._internal.settings import Settings
 from advexp.settings._internal.settings_attribute import SettingsAttribute
 from advexp.settings._internal.version import __version__
@@ -33,7 +31,8 @@ from advexp.settings_base.dynamic_settings_base_plugin import (
     DynamicSettingsBasePlugin,
 )
 from advexp.settings_base.dynamic_settings_info_interface import IDynamicSettingsInfo
-from advexp.settings_base.env_parameter import EnvParameter, env_parameter
+from advexp.settings_base.extension_base_plugin import ExtensionBasePlugin
+from advexp.settings_base.extension_plugin_interface import IExtensionPlugin
 from advexp.settings_base.getter import SettingRef
 from advexp.settings_base.library_configuration import LibraryConfiguration, family_entry_key
 from advexp.settings_base.member_load_error import MemberLoadError
@@ -52,6 +51,7 @@ from advexp.settings_base.names import (
 )
 from advexp.settings_base.no_default import NO_DEFAULT
 from advexp.settings_base.not_found import NOT_FOUND
+from advexp.settings_base.plugin_interface import IPlugin
 from advexp.settings_base.plugin_not_enabled_error import PluginNotEnabledError
 from advexp.settings_base.required import REQUIRED
 from advexp.settings_base.secret_bytes import SecretBytes
@@ -59,7 +59,9 @@ from advexp.settings_base.secret_str import SecretStr
 from advexp.settings_base.serializer_notification_sink_interface import (
     ISerializerNotificationSink,
 )
+from advexp.settings_base.setting import setting
 from advexp.settings_base.setting_attribute_interface import ISettingAttribute
+from advexp.settings_base.setting_declarations import SettingDeclarations
 from advexp.settings_base.setting_name_describer_interface import (
     ISettingNameDescriber,
 )
@@ -67,13 +69,20 @@ from advexp.settings_base.setting_validation_error import SettingValidationError
 from advexp.settings_base.settings_base_plugin import SettingsBasePlugin
 from advexp.settings_base.settings_base_serializer import SettingsBaseSerializer
 from advexp.settings_base.settings_plugin_interface import ISettingsPlugin
+from advexp.settings_base.settings_profile import SettingsProfile, settings_profile
 from advexp.settings_base.settings_serializer_interface import ISettingsSerializer
 from advexp.settings_base.settings_serializer_wishes_interface import (
     ISettingsSerializerWishes,
 )
+from advexp.settings_base.snapshot_missing import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    MISSING_SKIP,
+)
 from advexp.settings_base.source_describer_interface import ISourceDescriber
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.source_load_error import SourceLoadError
+from advexp.settings_base.sourceless_setting import SourcelessSetting, sourceless_setting
 from advexp.settings_base.sources import register_file_seat, register_source_link_key
 from advexp.settings_base.user_facing_error import UserFacingError
 
@@ -85,8 +94,11 @@ __all__ = [
     "DocumentDynamicSettingsPlugin",
     "DynamicSettingAttribute",
     "DynamicSettingsBasePlugin",
-    "EnvParameter",
+    "SettingsProfile",
+    "ExtensionBasePlugin",
     "IDynamicSettingsInfo",
+    "IExtensionPlugin",
+    "IPlugin",
     "ISettingNameDescriber",
     "ISourceDescriber",
     "ISerializerNotificationSink",
@@ -97,6 +109,9 @@ __all__ = [
     "MemberLoadError",
     "MissingValueError",
     "ModuleDefaultMeta",
+    "MISSING_NONE",
+    "MISSING_RAISE",
+    "MISSING_SKIP",
     "NO_DEFAULT",
     "NOT_FOUND",
     "PACKAGE_NAME",
@@ -111,7 +126,7 @@ __all__ = [
     "LibraryConfiguration",
     "SETTINGS_CONTEXT_ATTR",
     "SettingsContext",
-    "Setting",
+    "SettingDeclarations",
     "SettingRef",
     "SettingValidationError",
     "SourceLink",
@@ -119,11 +134,12 @@ __all__ = [
     "UserFacingError",
     "__version__",
     "declared_module_defaults",
-    "env_parameter",
+    "settings_profile",
     "family_entry_key",
     "for_this_module",
     "get_dynamic_settings_class_prefix",
-    "non_storage_setting",
+    "SourcelessSetting",
+    "sourceless_setting",
     "module_default_for",
     "register_file_seat",
     "register_module_default",

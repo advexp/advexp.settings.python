@@ -68,7 +68,7 @@ class AppSettings(
     debug: bool = False
 
     # the bounds use the same parameter names as Field above
-    port: int = adv_config.chain_setting(default=8000, ge=1, le=65535)
+    port: int = adv_config.setting(default=8000, ge=1, le=65535)
 
     # a bare annotation is required here too
     api_token: str
@@ -155,12 +155,13 @@ AppSettings.load_configuration(overrides=deployed.model_dump())
 `model_dump()` on the pydantic side corresponds to `to_dict()` on the
 Advexp side. Keys that the class does not declare, such as the extra `note`
 field above, are dropped, so a model with extra fields never breaks the
-call. A model can also become a separate layer of the chain: put an empty
-`mapping_source()` at the position you need, and fill it with
-`mapping_source_for(AppSettings).set(deployed.model_dump())` before the
-load reads it. The full round trip, including the options of the read-write
-package, is described in
-[Exchanging data with pydantic](configuration/getting-started.md#exchanging-data-with-pydantic).
+call. A model can also become a standing layer of the chain: the pydantic
+model source, `pydantic_source(AppSettings)`, constructs the model on every
+load and serves its values under member names. The full round trip,
+including the options of the read-write package, is described in
+[Exchanging data with pydantic](configuration/getting-started.md#exchanging-data-with-pydantic),
+and [Migrating from pydantic-settings](migrating-from-pydantic-settings.md)
+walks a working application through the whole move.
 
 ## From python-decouple
 
@@ -276,10 +277,10 @@ environment takes priority over the base file:
 ```python
 import advexp.configuration as adv_config
 import advexp.configuration.plugins.toml_settings as ts
-from advexp.configuration import env_parameter
+from advexp.configuration import settings_profile
 
 # APP_ENV names the environment; a typo makes the load fail early
-app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
 
 class ServiceSettings(
@@ -287,7 +288,9 @@ class ServiceSettings(
     options=adv_config.Sources(
         # the file of the current environment (settings-dev.toml
         # when APP_ENV=dev) takes priority over the base file
-        ts.toml_source(file="settings-{APP_ENV}.toml", parameters=app_env),
+        ts.toml_source(
+            file="settings-{APP_ENV}.toml", settings_profile=profile
+        ),
         ts.toml_source(file="settings.toml"),
     ),
 ):

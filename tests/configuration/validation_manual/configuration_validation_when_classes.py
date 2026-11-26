@@ -12,7 +12,8 @@ same shape, and their storages differ only in the value of the condition.
 from configuration_validation_storage_paths import STORAGE_DIR
 
 from advexp.configuration import Configuration
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 WHEN_OFF_JSON_FILE = STORAGE_DIR / "when-off.json"
 WHEN_ON_JSON_FILE = STORAGE_DIR / "when-on.json"

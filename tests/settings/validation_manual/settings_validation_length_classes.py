@@ -14,7 +14,8 @@ from settings_validation_storage_paths import STORAGE_DIR
 
 from advexp.settings import Settings
 from advexp.settings.plugin_api import NO_DEFAULT
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 LENGTH_BOUNDS_JSON_FILE = STORAGE_DIR / "length-bounds.json"
 NO_LENGTH_JSON_FILE = STORAGE_DIR / "length-no-length.json"

@@ -38,7 +38,8 @@ from advexp.settings_base.document_dynamic_settings_plugin import (
     _UNSET_SECTION,
     DocumentDynamicSettingsPlugin,
 )
-from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.family_boundaries import settings_family
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX, LibraryConfiguration
 from advexp.settings_base.module_default import module_default_for
 from advexp.settings_base.names import (
     DYNAMIC_SETTING_NAME_PREFIX,
@@ -54,19 +55,19 @@ from advexp.settings_base.user_facing_error import UserFacingError
 DynamicFileSpelling = Union[str, os.PathLike]
 """A configured file spelling: a path as text or as ``os.PathLike``."""
 
-JSON_DYNAMIC_GROUP_METADATA = "__JSONDynamicSettingsGroup"
+JSON_DYNAMIC_GROUP_METADATA = f"{RESERVED_KEY_PREFIX}JSONDynamicSettingsGroup"
 """The class metadata key of the JSON dynamic reader's writer group. The
 value is the writing class's group key — the text its entries sit under in
 the document — declared beside the reading class's JSON source binding
 (``json_source(dynamic_of=...)``); a class without one reads no dynamic
 entries."""
 
-TOML_DYNAMIC_GROUP_METADATA = "__TOMLDynamicSettingsGroup"
+TOML_DYNAMIC_GROUP_METADATA = f"{RESERVED_KEY_PREFIX}TOMLDynamicSettingsGroup"
 """The metadata key of the TOML dynamic reader's writer group; the TOML
 twin of :data:`JSON_DYNAMIC_GROUP_METADATA`, declared beside the reading
 class's TOML source binding (``toml_source(dynamic_of=...)``)."""
 
-YAML_DYNAMIC_GROUP_METADATA = "__YAMLDynamicSettingsGroup"
+YAML_DYNAMIC_GROUP_METADATA = f"{RESERVED_KEY_PREFIX}YAMLDynamicSettingsGroup"
 """The metadata key of the YAML dynamic reader's writer group; the YAML
 twin of :data:`JSON_DYNAMIC_GROUP_METADATA`, declared beside the reading
 class's YAML source binding (``yaml_source(dynamic_of=...)``)."""
@@ -115,8 +116,14 @@ def document_dynamic_plugin(
     A serializer reaches the section parameters through this lookup instead of
     importing the plugin class.
     """
+    family = settings_family(context.settings_class)
     for plugin_class in LibraryConfiguration.registered_plugin_classes():
         if not issubclass(plugin_class, DocumentDynamicSettingsPlugin):
+            continue
+        # both distributions pin their dynamic side to the one shared member
+        # class of the backend: the plugin of the reading class's own family
+        # is the one whose section parameters the read follows
+        if getattr(plugin_class, "family", None) not in (None, family):
             continue
         declared = getattr(plugin_class, "binding", None)
         pin = getattr(declared, "attribute_class", None) if declared is not None else None
@@ -147,7 +154,7 @@ def resolve_dynamic_document_file(
     The result is ``None`` if no level of either side names a file. The caller
     turns that into its own configuration error.
     """
-    binding = context.get_class_metadata(dynamic_file_metadata)
+    binding = context.get_class_metadata(dynamic_file_metadata, default=None)
     if binding is not None:
         return binding
     # the holder's parameter read is dynamic: every backend names its own
@@ -368,7 +375,7 @@ def dynamic_writer_group(context: SettingsContext, group_metadata: str) -> Optio
     The reading side spells it, because it knows the writer by contract, not by
     import. A class without the binding reads no dynamic entries.
     """
-    key: Any = context.get_class_metadata(group_metadata)
+    key: Any = context.get_class_metadata(group_metadata, default=None)
     return key if isinstance(key, str) and key else None
 
 

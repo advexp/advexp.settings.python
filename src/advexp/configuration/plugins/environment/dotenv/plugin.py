@@ -11,20 +11,27 @@ example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
 )
 from advexp.configuration.plugins.environment.dotenv.serializer import DotenvSerializer
-from advexp.configuration.plugins.environment.dotenv.setting import DotenvSetting
+from advexp.settings_base.dotenv_setting import DotenvSetting
 
 
 class DotenvPlugin(SettingsBasePlugin):
     """Plugin object for the dotenv file source."""
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(DotenvSetting, DotenvSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        DotenvSetting,
+        DotenvSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:

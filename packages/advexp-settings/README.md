@@ -21,7 +21,8 @@ class AppSettings(
         js.json_file("app-settings.json"),
     ),
 ):
-    # read from APP_MODE: the prefix plus the member name in upper case
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case
     mode: str = "production"
 
     # the same APP_SESSION_TTL address as mode, in the rich setting
@@ -104,6 +105,11 @@ Some backends need extras:
 - **Safe saving.** Saving updates only the settings being saved. Comments,
   formatting, and keys that the library does not recognize are left exactly
   as they were.
+- **Shared declarations.** Describe the members once in a plain base
+  class: the settings class and the configuration class inherit the same
+  declarations, each reading them through its own sources. See
+  [Shared declarations](https://docs.advexp.net/shared-declarations/).
+
 - **A read-only counterpart.** The Advexp.Configuration package uses the
   same declarations to load values from its sources, but never writes
   anything back.
@@ -126,12 +132,14 @@ Some backends need extras:
   whose names are known only at runtime.
 - [Setting metadata](https://docs.advexp.net/metadata/): labels and flags
   attached to settings, for use by UIs and code generators.
+- [Shared declarations](https://docs.advexp.net/shared-declarations/): one
+  set of member declarations for the settings and the configuration class.
 - [Extending](https://docs.advexp.net/extending/): custom attribute
   parameters and custom backends.
-- [Samples](https://docs.advexp.net/samples/): runnable example programs
-  for both packages, located in the project's repository.
 - [Configuration](https://docs.advexp.net/configuration/):
   Advexp.Configuration, the read-only counterpart.
+- [Samples](https://docs.advexp.net/samples/): runnable example programs
+  for both packages, located in the project's repository.
 - [API reference](https://docs.advexp.net/api/): classes, exceptions, and
   plugin interfaces, generated from the docstrings.
 

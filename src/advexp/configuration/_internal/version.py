@@ -8,6 +8,6 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("advexp-configuration")
 except PackageNotFoundError:  # running from a source checkout
-    __version__ = "0.1.0"
+    __version__ = "0.2.0"
 
 __all__ = ["__version__"]

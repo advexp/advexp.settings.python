@@ -13,9 +13,9 @@ backend. The tour walks through the style in full:
 - the JSON file seat next to a foreign binding (``json_file``);
 - the cases in which the ``class`` statement fails with an error;
 - inheritance of the binding;
-- a file per environment, through ``env_parameter``;
+- a file per environment, through ``settings_profile``;
 - the members that stand outside the reach of the style
-  (``non_storage_setting``, and the family factories of a multi-storage
+  (``sourceless_setting``, and the family factories of a multi-storage
   class).
 
 Run from the repository root with the package installed
@@ -150,7 +150,7 @@ class Limits(adv_settings.Settings):
     nothing to read.
     """
 
-    retries: int = adv_settings.non_storage_setting(default=3, ge=0)
+    retries: int = adv_settings.sourceless_setting(default=3, ge=0)
 
 
 class DictionarySettings(
@@ -171,7 +171,7 @@ class DictionarySettings(
 
 # the template's slot may spell another name than the variable: slot=
 # renames it, and the template's checks go by slot names
-deploy_env = adv_settings.env_parameter(ENV_VAR, choices=("dev", "prod"), default="dev", slot="env")
+profile = adv_settings.settings_profile(ENV_VAR, choices=("dev", "prod"), default="dev", slot="env")
 
 
 class DeploySettings(
@@ -179,12 +179,12 @@ class DeploySettings(
     options=js.json_source(
         file=SAMPLES_DIR / DEPLOY_TEMPLATE,
         name_pattern="{FieldName}",
-        parameters=deploy_env,
+        settings_profile=profile,
     ),
 ):
     """The file of the environment that a variable names.
 
-    The file of the binding spells a slot that the parameter fills on each pass.
+    The file of the binding spells a slot that the profile fills on each pass.
     The whitelist guards the variable before anything touches the file system,
     and a save lands in the file of the environment that the load read.
     """
@@ -416,7 +416,7 @@ def main() -> None:
     print(f"saved      = retries {stored['retries']!r} (into the seated file)")
 
     section("a member without a storage: nothing to read, nothing to write")
-    # non_storage_setting needs no backend module and no class binding:
+    # sourceless_setting needs no backend module and no class binding:
     # the core import alone carries a working class, and its load and
     # save passes run clean — no storage is ever asked
     Limits.load_settings()

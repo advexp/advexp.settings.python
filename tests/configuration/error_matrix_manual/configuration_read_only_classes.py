@@ -10,7 +10,8 @@ from configuration_storage_paths import STORAGE_DIR
 
 from advexp.configuration import REQUIRED, Configuration
 from advexp.configuration.plugin_api import NO_DEFAULT
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 READ_ONLY_JSON_FILE = STORAGE_DIR / "read-only.json"
 

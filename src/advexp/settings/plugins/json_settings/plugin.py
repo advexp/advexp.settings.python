@@ -14,14 +14,15 @@ import os
 from typing import Any, Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
     SourceLink,
 )
 from advexp.settings.plugins.json_settings.serializer import JSONSettingsSerializer
-from advexp.settings.plugins.json_settings.setting import JSONSetting
 from advexp.settings_base.json_file import JSON_FILE_METADATA, check_json_file
+from advexp.settings_base.json_setting import JSONSetting
 from advexp.settings_base.sources import (
     JSON_SOURCE_METADATA,
     LINK_FILE_PARAM,
@@ -38,9 +39,15 @@ class JSONSettingsPlugin(SettingsBasePlugin):
     separate next to it.
     """
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(JSONSetting, JSONSettingsSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        JSONSetting,
+        JSONSettingsSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:
@@ -48,7 +55,7 @@ class JSONSettingsPlugin(SettingsBasePlugin):
 
     def __source_link(self) -> Optional[SourceLink]:
         """The JSON source seat in the class's chain; ``None`` when unbound."""
-        link: Any = self.context.get_class_metadata(JSON_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(JSON_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     @property
@@ -64,8 +71,8 @@ class JSONSettingsPlugin(SettingsBasePlugin):
         """
         link = self.__source_link()
         if link is not None:
-            return link.param(LINK_FILE_PARAM)
-        return self.context.get_class_metadata(JSON_FILE_METADATA)
+            return link.param(LINK_FILE_PARAM, default=None)
+        return self.context.get_class_metadata(JSON_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:
@@ -80,6 +87,7 @@ class JSONSettingsPlugin(SettingsBasePlugin):
             JSON_SOURCE_METADATA,
             SourceLink(
                 attribute_class=link.attribute_class,
+                serializer_class=link.serializer_class,
                 params={**link.params, LINK_FILE_PARAM: value},
             ),
         )

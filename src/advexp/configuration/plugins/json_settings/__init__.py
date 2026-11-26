@@ -34,12 +34,12 @@ the factory and the serializer), and importing it enables the source.
 from advexp.configuration.plugins.json_settings.options import json_source
 from advexp.configuration.plugins.json_settings.plugin import JSONSettingsPlugin
 from advexp.configuration.plugins.json_settings.serializer import JSONSettingsSerializer
-from advexp.configuration.plugins.json_settings.setting import JSONSetting, json_setting
+from advexp.settings_base.json_setting import JSONSetting, json_setting
 
 __all__ = [
-    "JSONSetting",
     "JSONSettingsPlugin",
     "JSONSettingsSerializer",
+    "JSONSetting",
     "json_setting",
     "json_source",
 ]

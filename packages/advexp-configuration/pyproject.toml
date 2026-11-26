@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "advexp-configuration"
-version = "0.1.0"
+version = "0.2.0"
 description = "Read-only application configuration for Python"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -23,6 +23,7 @@ keywords = [
     "json",
     "toml",
     "yaml",
+    "pydantic",
 ]
 classifiers = [
     "Development Status :: 1 - Planning",
@@ -41,7 +42,7 @@ classifiers = [
 # the family's base machinery: advexp.settings_base ships separately and is
 # imported by the facades; the pin is lockstep with the monorepo release of
 # the base — loosen together at the first stable release
-dependencies = ["advexp-settings-base==0.1.0"]
+dependencies = ["advexp-settings-base==0.2.0"]
 
 [project.optional-dependencies]
 # the dotenv file source rides python-dotenv
@@ -54,12 +55,17 @@ toml = ["tomli; python_version < '3.11'"]
 # YAML version semantics stay one; the source reads in the safe mode, and
 # the range keeps to the two live release series
 yaml = ["ruamel.yaml>=0.18,<0.20"]
+# the pydantic model source rides pydantic v2: model_dump() and the secret
+# wrappers are the whole surface it needs, so the range is open upwards
+pydantic = ["pydantic>=2"]
 # development
 test = [
     "pytest",
     "tomli; python_version < '3.11'",
     "ruamel.yaml>=0.18,<0.20",
     "python-dotenv",
+    "pydantic>=2",
+    "pydantic-settings",
 ]
 # ruff is pinned: CI enforces `ruff format --check`, so the formatting ruff
 # version must match across machines — bump deliberately and re-run `ruff format .`
@@ -91,6 +97,7 @@ include = [
     "advexp.configuration.plugins.json_dynamic_settings",
     "advexp.configuration.plugins.json_settings",
     "advexp.configuration.plugins.mapping_source",
+    "advexp.configuration.plugins.pydantic",
     "advexp.configuration.plugins.toml_dynamic_settings",
     "advexp.configuration.plugins.toml_settings",
     "advexp.configuration.plugins.yaml_dynamic_settings",

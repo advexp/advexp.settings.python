@@ -22,14 +22,15 @@ class AppConfig(
         js.json_source(file="app-configuration.json"),
     ),
 ):
-    # read from APP_MODE — the prefix plus the member name in upper
-    # case — or, with no such variable, from the JSON file's key
-    # (the module, class and member, dotted)
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case — or, with no such
+    # variable, from the JSON file's key (the module, class
+    # and member, dotted)
     mode: str = "production"
 
     # the same chain as mode — APP_SESSION_TTL first, else the JSON
-    # key — in the rich chain_setting form, which carries the default
-    session_ttl: timedelta = adv_config.chain_setting(
+    # key — in the rich setting form, which carries the default
+    session_ttl: timedelta = adv_config.setting(
         default=timedelta(minutes=30)
     )
 
@@ -54,6 +55,13 @@ print(repr(AppConfig.session_ttl))
 ```bash
 pip install advexp-configuration
 ```
+
+Some backends need extras:
+
+- `pip install "advexp-configuration[dotenv]"` for dotenv files
+- `pip install "advexp-configuration[toml]"` for TOML files below Python 3.11
+- `pip install "advexp-configuration[yaml]"` for YAML files
+- `pip install "advexp-configuration[pydantic]"` for the pydantic model source
 
 ## Why Advexp.Configuration
 
@@ -94,6 +102,11 @@ pip install advexp-configuration
   declaration syntax, so you can usually move a class between them by
   changing the base class and the imports.
 
+- **Shared declarations.** Describe the members once in a plain base
+  class: the settings class and the configuration class inherit the same
+  declarations, each reading them through its own sources. See
+  [Shared declarations](https://docs.advexp.net/shared-declarations/).
+
 ## Where to go next
 
 - [Project site](https://advexp.net/advexp.configuration/): the
@@ -107,12 +120,20 @@ pip install advexp-configuration
   how they are converted from source values.
 - [Validation](https://docs.advexp.net/validation/): value constraints and
   cross-member rules.
+- [Setting metadata](https://docs.advexp.net/metadata/): labels and flags
+  attached to members, for use by UIs and code generators.
 - [Dynamic settings](https://docs.advexp.net/dynamic-settings/#reading-a-written-collection):
   reading a collection written by Advexp.Settings.
-- [Samples](https://docs.advexp.net/samples/): runnable example programs
-  for both packages, located in the project's repository.
+- [Shared declarations](https://docs.advexp.net/shared-declarations/): one
+  set of member declarations for the settings and the configuration class.
+- [Migrating
+  from pydantic-settings](https://docs.advexp.net/migrating-from-pydantic-settings/):
+  moving a working application onto this package step by step, without
+  stopping development.
 - [Settings](https://docs.advexp.net/settings/): Advexp.Settings, the
   read-write counterpart.
+- [Samples](https://docs.advexp.net/samples/): runnable example programs
+  for both packages, located in the project's repository.
 - [API reference](https://docs.advexp.net/api/): classes, exceptions, and
   plugin interfaces, generated from the docstrings.
 

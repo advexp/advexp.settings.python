@@ -18,7 +18,7 @@ member that must live outside the subtree of the link needs a link of its
 own: the same file under another ``path=``.
 
 The optional ``path=`` of
-:class:`~advexp.configuration.plugins.json_settings.setting.JSONSetting`
+:class:`~advexp.settings_base.json_setting.JSONSetting`
 locates a key in the document tree as a JSON Pointer (RFC 6901): a leading
 ``/``, then slash-separated segments, with ``~1``/``~0`` escaping.
 ``JSONSetting(name="host", path="/net/proxy")`` reads the key from
@@ -73,7 +73,6 @@ from advexp.configuration.plugin_api import (
 from advexp.configuration.plugins.json_settings.dynamic_configuration import (
     JSONDynamicSettingsConfiguration,
 )
-from advexp.configuration.plugins.json_settings.setting import JSONSetting
 from advexp.settings_base.dynamic_document import (
     JSON_DYNAMIC_GROUP_METADATA,
     document_dynamic_plugin,
@@ -83,12 +82,12 @@ from advexp.settings_base.dynamic_document import (
     dynamic_writer_group,
     resolve_dynamic_document_file,
 )
-from advexp.settings_base.env_parameter import EnvParameter, resolve_templated_path
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.json_file import (
     JSON_DYNAMIC_FILE_METADATA,
     JSON_FILE_METADATA,
 )
+from advexp.settings_base.json_setting import JSONSetting
 from advexp.settings_base.names import (
     DEFAULT_SETTINGS_NAME_PATTERN,
     get_full_setting_name,
@@ -96,13 +95,14 @@ from advexp.settings_base.names import (
     spelled_with_aliases,
 )
 from advexp.settings_base.pointer import array_index, pointer_steps
+from advexp.settings_base.settings_profile import SettingsProfile, resolve_templated_path
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.source_link_sink_interface import ISourceLinkSink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
     LINK_PATH_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
     SOURCE_CHAIN_METADATA,
     Sources,
 )
@@ -157,7 +157,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
         self.__file: Optional[Union[str, os.PathLike]] = None
         self.__path: Optional[str] = None
         self.__name_pattern: Optional[str] = None
-        self.__parameters: Optional[Tuple[EnvParameter, ...]] = None
+        self.__profile: Optional[Tuple[SettingsProfile, ...]] = None
 
     # -- ISourceLinkSink --------------------------------------------------------
 
@@ -166,15 +166,15 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
 
         The ``file=`` of the link names the file, its ``path=`` anchors the keys of
         the link inside a subtree of the document, and its ``name_pattern=`` sets
-        the pattern that builds the keys. Its ``parameters=`` carries the path
+        the pattern that builds the keys. Its ``settings_profile=`` carries the path
         parameters through which a templated ``file=`` is resolved. The link is the
         only configuration of this source: a layered class declares no module
         default and no per-class file binding.
         """
-        self.__file = link.param(LINK_FILE_PARAM)
-        self.__path = link.param(LINK_PATH_PARAM)
-        self.__name_pattern = link.param(LINK_NAME_PATTERN_PARAM)
-        self.__parameters = link.param(LINK_PARAMETERS_PARAM)
+        self.__file = link.param(LINK_FILE_PARAM, default=None)
+        self.__path = link.param(LINK_PATH_PARAM, default=None)
+        self.__name_pattern = link.param(LINK_NAME_PATTERN_PARAM, default=None)
+        self.__profile = link.param(LINK_SETTINGS_PROFILE_PARAM, default=None)
 
     # -- document handling ---------------------------------------------------
 
@@ -202,7 +202,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
         resolved = resolve_templated_path(
             self.context,
             configured,
-            self.__parameters,
+            self.__profile,
             f"the JSON file source ({PACKAGE_NAME})",
         )
         return self.context.anchored_file_path((JSON_FILE_METADATA, resolved), resolved)
@@ -310,7 +310,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
         class. It is the same chain link either way, reached here without the
         delivery.
         """
-        chain: Any = self.context.get_class_metadata(SOURCE_CHAIN_METADATA)
+        chain: Any = self.context.get_class_metadata(SOURCE_CHAIN_METADATA, default=None)
         if not isinstance(chain, Sources):
             return None
         for link in chain:
@@ -331,7 +331,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
         link = self.__family_link()
 
         def link_file() -> Optional[Union[str, os.PathLike]]:
-            return link.param(LINK_FILE_PARAM) if link is not None else None
+            return link.param(LINK_FILE_PARAM, default=None) if link is not None else None
 
         configured = resolve_dynamic_document_file(
             self.context,
@@ -352,7 +352,9 @@ class JSONSettingsSerializer(SettingsBaseSerializer, ISourceLinkSink, IDynamicSe
                     f"to a file (json_source(file=...)) ({PACKAGE_NAME})"
                 )
             )
-        parameters = link.param(LINK_PARAMETERS_PARAM) if link is not None else None
+        parameters = (
+            link.param(LINK_SETTINGS_PROFILE_PARAM, default=None) if link is not None else None
+        )
         resolved = resolve_templated_path(
             self.context,
             configured,

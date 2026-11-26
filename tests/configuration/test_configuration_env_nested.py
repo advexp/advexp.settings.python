@@ -16,6 +16,8 @@ from advexp.configuration import Configuration
 from advexp.configuration.plugins.environment import NameCase
 from advexp.configuration.plugins.environment.variables import (
     env_source,
+)
+from advexp.settings_base.environment_variable_setting import (
     environment_variable_setting,
 )
 

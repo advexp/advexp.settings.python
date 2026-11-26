@@ -52,8 +52,8 @@ from advexp.settings.plugins.environment.dotenv.configuration import DotenvConfi
 from advexp.settings.plugins.environment.dotenv.options import dotenv_file, dotenv_source
 from advexp.settings.plugins.environment.dotenv.plugin import DotenvPlugin
 from advexp.settings.plugins.environment.dotenv.serializer import DotenvSerializer
-from advexp.settings.plugins.environment.dotenv.setting import DotenvSetting, dotenv_setting
 from advexp.settings_base.dotenv_file import DOTENV_FILE_METADATA
+from advexp.settings_base.dotenv_setting import DotenvSetting, dotenv_setting
 from advexp.settings_base.environment import (
     ENVIRONMENT_METADATA_OPTIONS,
     NAME_CASE,
@@ -67,13 +67,13 @@ __all__ = [
     "DotenvConfiguration",
     "DotenvPlugin",
     "DotenvSerializer",
-    "DotenvSetting",
     "ENVIRONMENT_METADATA_OPTIONS",
     "NAME_CASE",
     "NAME_PREFIX",
     "NESTED_DELIMITER",
     "NameCase",
     "dotenv_file",
+    "DotenvSetting",
     "dotenv_setting",
     "dotenv_source",
 ]

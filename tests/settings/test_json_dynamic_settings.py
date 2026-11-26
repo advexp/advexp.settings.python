@@ -32,13 +32,15 @@ from advexp.settings.plugins.json_dynamic_settings import (
 )
 from advexp.settings.plugins.json_settings import (
     NAME_PATTERN,
-    JSONSetting,
     JSONSettingsConfiguration,
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.settings_base.document_dynamic_settings_plugin import _UNSET_SECTION
+from advexp.settings_base.json_setting import (
+    JSONSetting,
+    json_setting,
+)
 
 # noinspection PyProtectedMember
 from advexp.settings_base.names import (
@@ -146,7 +148,10 @@ def test_import_enables_plugin_and_registers_pin_pair():
     # plugin's JSONSetting binding, so the two registrations cannot clash
     pin = JSONDynamicSettingsPlugin.binding.attribute_class
     assert pin is DynamicSettingAttribute[JSONSetting]
-    assert LibraryConfiguration._get_serializer_factory(pin) is JSONSettingsSerializer
+    assert (
+        LibraryConfiguration._get_serializer_factory(pin, "advexp.settings")
+        is JSONSettingsSerializer
+    )
 
 
 def test_plugin_instance_is_cached_per_class():
@@ -965,6 +970,9 @@ def test_setting_metadata_round_trip_and_default():
     plugin.set_setting_metadata("window.x", "ui-label", "Horizontal position")
     assert plugin.get_setting_metadata("window.x", "ui-label") == "Horizontal position"
     assert plugin.get_setting_metadata("window.x", "missing", "fallback") == "fallback"
+    # no default for a missing entry: KeyError lists what the name carries
+    with pytest.raises(KeyError, match="available metadata: ui-label"):
+        plugin.get_setting_metadata("window.x", "missing")
 
 
 def test_get_setting_all_metadata_snapshots_the_bucket():
@@ -1132,8 +1140,11 @@ def test_setting_metadata_lives_per_class():
     mine.set_setting("checkbox", True)
     other.set_setting("checkbox", False)
     mine.set_setting_metadata("checkbox", "ui-label", "Mine")
-    # the same name in the other class's collection: its own storage
-    assert other.get_setting_metadata("checkbox", "ui-label") is None
+    # the same name in the other class's collection: its own storage, which
+    # holds no entry — the dictionary rule raises instead of answering None
+    with pytest.raises(KeyError, match="not a metadata entry of the dynamic setting"):
+        other.get_setting_metadata("checkbox", "ui-label")
+    assert not other.contains_setting_metadata("checkbox", "ui-label")
 
 
 def test_dynamic_and_member_metadata_are_apart_even_on_one_name():
@@ -1520,7 +1531,9 @@ def ride_plugin():
     # the plugin's registration filled the pin slot at import; pop it so
     # each test decides what the slot holds
     # noinspection PyProtectedMember
-    LibraryConfiguration._attribute_serializers.pop(DynamicSettingAttribute[RideSetting], None)
+    LibraryConfiguration._attribute_serializers.pop(
+        (None, DynamicSettingAttribute[RideSetting]), None
+    )
     plugin = RideSettings.get_plugin(RideDynamicPlugin)
     # noinspection PyProtectedMember
     plugin._DynamicSettingsBasePlugin__values.clear()
@@ -1528,9 +1541,11 @@ def ride_plugin():
     # noinspection PyProtectedMember
     plugin._DynamicSettingsBasePlugin__values.clear()
     # noinspection PyProtectedMember
-    LibraryConfiguration._attribute_serializers.pop(RideSetting, None)
+    LibraryConfiguration._attribute_serializers.pop((None, RideSetting), None)
     # noinspection PyProtectedMember
-    LibraryConfiguration._attribute_serializers.pop(DynamicSettingAttribute[RideSetting], None)
+    LibraryConfiguration._attribute_serializers.pop(
+        (None, DynamicSettingAttribute[RideSetting]), None
+    )
     RideStorage.data.clear()
     DetourStorage.data.clear()
 

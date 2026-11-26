@@ -17,9 +17,11 @@ model:
 - typed reads through the defaults of ``get_setting``;
 - the iteration order declared in code;
 - snapshots of the open collection;
-- the dynamic side moving to a file of its own, either module-wide through
-  ``YAMLDynamicSettingsConfiguration`` or per class through the
-  ``yaml_source(dynamic_file=...)`` binding of the ``class`` statement.
+- the dynamic side moving to a file of its own: module-wide through
+  ``YAMLDynamicSettingsConfiguration``, per class through the
+  ``yaml_source(dynamic_file=...)`` binding of the ``class`` statement, or
+  through the ``yaml_dynamic_file(...)`` seat when another family holds the
+  binding of the class.
 
 The settings files are written next to this script and removed at startup, so
 every run starts from a clean slate, and the files that the previous run left
@@ -31,7 +33,9 @@ from datetime import date
 from pathlib import Path
 
 import advexp.settings as adv_settings
+import advexp.settings.plugins.environment.variables as env
 import advexp.settings.plugins.yaml_dynamic_settings as yds
+import advexp.settings.plugins.yaml_settings as ys
 
 SAMPLES_DIR = Path(__file__).resolve().parent
 APP_SETTINGS_FILE = SAMPLES_DIR / "app-settings.yaml"
@@ -132,6 +136,27 @@ def main() -> None:
     pinned.save_settings()
     print(f"own file of PinnedSettings = {pinned.file_path!r} (per-class binding)")
     print(DYNAMIC_SETTINGS_FILE.read_text(encoding="utf-8"))
+
+    # a class bound to another family cannot take that builder — it would
+    # bind the class to the YAML storage. Its dynamic collection still
+    # works through the backend, and the seat of the family names the file:
+    # the plain members keep the env source, the dynamic entries take the
+    # seated file
+    class SeatedSettings(
+        adv_settings.Settings,
+        options=(
+            env.env_source(name_prefix="SAMPLE_"),
+            ys.yaml_dynamic_file(DYNAMIC_SETTINGS_FILE),
+        ),
+    ):
+        retries: int = 3  # a plain member: the class's one source is env
+
+    seated = SeatedSettings.get_plugin(yds.YAMLDynamicSettingsPlugin)
+    seated.set_setting("checkbox", True)
+    seated.save_settings()
+    print(f"own file of SeatedSettings = {seated.file_path!r} (the seat)")
+    print(DYNAMIC_SETTINGS_FILE.read_text(encoding="utf-8"))
+    print("(each class keeps its own key in the section; nothing moved between files)")
 
     section("deletion: one name, or the whole collection")
     # null is a value, so removal stays explicit — the delete operations are

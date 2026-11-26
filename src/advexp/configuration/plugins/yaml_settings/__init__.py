@@ -34,12 +34,12 @@ the factory and the serializer), and importing it enables the source.
 from advexp.configuration.plugins.yaml_settings.options import yaml_source
 from advexp.configuration.plugins.yaml_settings.plugin import YAMLSettingsPlugin
 from advexp.configuration.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.configuration.plugins.yaml_settings.setting import YAMLSetting, yaml_setting
+from advexp.settings_base.yaml_setting import YAMLSetting, yaml_setting
 
 __all__ = [
-    "YAMLSetting",
     "YAMLSettingsPlugin",
     "YAMLSettingsSerializer",
+    "YAMLSetting",
     "yaml_setting",
     "yaml_source",
 ]

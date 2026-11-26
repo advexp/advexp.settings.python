@@ -12,7 +12,7 @@ import logging
 
 import pytest
 
-from advexp.configuration import Configuration, Sources, chain_setting
+from advexp.configuration import Configuration, Sources, setting
 from advexp.configuration.plugins.mapping_source import (
     MappingSourceLink,
     mapping_source,
@@ -63,7 +63,7 @@ def test_the_live_dictionary_speaks_member_names_alone(caplog):
         Configuration,
         options=Sources(mapping_source()),
     ):
-        host: str = chain_setting(name="HOST", aliases=["OLD_HOST"], default="fallback")
+        host: str = setting(name="HOST", aliases=["OLD_HOST"], default="fallback")
 
     mapping_source_for(C).set({"host": "map-host", "foreign": 42})
     with caplog.at_level(logging.DEBUG, logger="advexp.configuration"):

@@ -23,14 +23,16 @@ except ModuleNotFoundError:
 from advexp.configuration import AggregateLoadError, Configuration, LibraryConfiguration, Sources
 from advexp.configuration.plugin_api import NO_DEFAULT
 from advexp.configuration.plugins.toml_settings import (
-    TOMLSetting,
     TOMLSettingsPlugin,
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
+from advexp.settings_base.toml_setting import (
+    TOMLSetting,
+    toml_setting,
+)
 
 
 class Color(enum.Enum):
@@ -107,7 +109,10 @@ def read_document(configured_file) -> Any:
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(TOMLSetting) is not None
+    assert (
+        LibraryConfiguration._get_serializer_factory(TOMLSetting, "advexp.configuration")
+        is not None
+    )
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
     assert TOMLSettingsPlugin in LibraryConfiguration.registered_plugin_classes()
 
@@ -542,7 +547,7 @@ def tagged_attribute() -> Iterator[type]:
     # class, next to the stock TOMLSetting registration
     LibraryConfiguration.register_settings_attribute(TaggedTOMLSetting, TaggedTOMLSerializer)
     yield TaggedTOMLSetting
-    LibraryConfiguration._attribute_serializers.pop(TaggedTOMLSetting, None)
+    LibraryConfiguration._attribute_serializers.pop((None, TaggedTOMLSetting), None)
 
 
 def test_mixed_attribute_classes_read_one_document(configured_file, tagged_attribute):

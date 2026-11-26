@@ -27,21 +27,25 @@ from typing import (
 
 import pytest
 
+# the environment plugin registers the module default that serves the env
+# members below; importing it here keeps the file self-sufficient, so a
+# single-file debug run needs no other test module to have run first
+import advexp.settings.plugins.environment.variables  # noqa: F401
 from advexp.settings import Settings
-
-# noinspection PyProtectedMember
-from advexp.settings._internal.non_storage_setting import (
-    NonStorageSetting,
-    non_storage_setting,
-)
 from advexp.settings.plugin_api import NO_DEFAULT, SettingsAttribute
-from advexp.settings.plugins.environment.variables import (
-    environment_variable_setting,
-)
 
 # noinspection PyProtectedMember
 from advexp.settings_base import default_validation
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
 from advexp.settings_base.required import REQUIRED
+
+# noinspection PyProtectedMember
+from advexp.settings_base.sourceless_setting import (
+    SourcelessSetting,
+    sourceless_setting,
+)
 
 
 class Shade(enum.Enum):
@@ -81,7 +85,7 @@ UserId = NewType("UserId", int)
 
 def test_loosely_typed_default_serves_converted():
     class PortSettings(Settings):
-        port: int = non_storage_setting(default="8080")
+        port: int = sourceless_setting(default="8080")
 
     assert PortSettings.port == 8080
     assert isinstance(PortSettings.port, int)
@@ -91,16 +95,16 @@ def test_well_typed_default_is_served_unchanged():
     moment = datetime.datetime(2026, 9, 21, 12, 0)
 
     class Fine(Settings):
-        when: datetime.datetime = non_storage_setting(default=moment)
+        when: datetime.datetime = sourceless_setting(default=moment)
 
     assert Fine.when == moment
 
 
 def test_storage_form_default_becomes_the_annotated_shape():
     class Shapes(Settings):
-        mirrors: tuple = non_storage_setting(default=["a", "b"])
-        tags: set = non_storage_setting(default=["a"])
-        proxy: Optional[Proxy] = non_storage_setting(default={"host": "h"})
+        mirrors: tuple = sourceless_setting(default=["a", "b"])
+        tags: set = sourceless_setting(default=["a"])
+        proxy: Optional[Proxy] = sourceless_setting(default={"host": "h"})
 
     assert Shapes.mirrors == ("a", "b")
     assert Shapes.tags == {"a"}
@@ -109,7 +113,7 @@ def test_storage_form_default_becomes_the_annotated_shape():
 
 def test_declared_default_stays_as_written():
     class PortSettings(Settings):
-        port: int = non_storage_setting(default="8080")
+        port: int = sourceless_setting(default="8080")
 
     attribute = PortSettings.__settings_members__["port"].attribute
     assert attribute.default == "8080"  # the declaration is not rewritten
@@ -118,7 +122,7 @@ def test_declared_default_stays_as_written():
 
 def test_served_defaults_are_isolated_copies():
     class Tags(Settings):
-        tags: List[str] = non_storage_setting(default=["a"])
+        tags: List[str] = sourceless_setting(default=["a"])
 
     first = Tags.tags
     first.append("mutated")
@@ -131,23 +135,28 @@ def test_served_defaults_are_isolated_copies():
 
 def test_to_dict_reports_converted_defaults():
     class PortSettings(Settings):
-        port: int = non_storage_setting(default="8080")
+        port: int = sourceless_setting(default="8080")
 
     assert PortSettings.to_dict() == {"port": 8080}
 
 
-def test_no_default_and_none_defaults():
-    class Bare(Settings):
-        nothing = NonStorageSetting()
-        empty: Optional[int] = non_storage_setting(default=None)
+def test_a_sourceless_member_takes_none_but_not_a_missing_value():
+    # None is an explicit declared value; the missing value is refused at the
+    # factory call, before the class statement ever runs
+    with pytest.raises(TypeError, match="needs a value: pass default="):
+        sourceless_setting()
+    with pytest.raises(TypeError, match="needs a value: pass default="):
+        sourceless_setting(default=NO_DEFAULT)
 
-    assert Bare.nothing is None
+    class Bare(Settings):
+        empty: Optional[int] = sourceless_setting(default=None)
+
     assert Bare.empty is None
 
 
 def test_unannotated_default_serves_as_declared():
     class Plain(Settings):
-        raw = NonStorageSetting(default=42)
+        raw = SourcelessSetting(default=42)
 
     assert Plain.raw == 42
 
@@ -163,12 +172,12 @@ def test_subclass_serves_the_converted_default_and_does_not_reconvert(monkeypatc
     monkeypatch.setattr(default_validation, "correct_type", spy)
 
     class Base(Settings):
-        port: int = non_storage_setting(default="8080")
+        port: int = sourceless_setting(default="8080")
 
     assert calls == ["8080"]
 
     class Sub(Base):
-        extra: str = non_storage_setting(default="x")
+        extra: str = sourceless_setting(default="x")
 
     # the inherited member shares the base's descriptor: converted once
     assert calls == ["8080", "x"]
@@ -186,7 +195,7 @@ def test_unconvertible_default_fails_class_creation():
     with pytest.raises(TypeError, match="invalid defaults in BadSettings") as info:
 
         class BadSettings(Settings):
-            when: datetime.datetime = non_storage_setting(default="not-a-timestamp")
+            when: datetime.datetime = sourceless_setting(default="not-a-timestamp")
 
     assert "when" in str(info.value)
     assert "cannot convert 'not-a-timestamp' to datetime" in str(info.value)
@@ -198,14 +207,14 @@ def test_bool_default_for_int_member_is_rejected():
     with pytest.raises(TypeError, match="cannot convert True to int"):
 
         class Flagged(Settings):
-            flag: int = non_storage_setting(default=True)
+            flag: int = sourceless_setting(default=True)
 
 
 def test_wrong_enum_member_name_is_rejected():
     with pytest.raises(TypeError) as info:
 
         class Bad(Settings):
-            shade: Shade = non_storage_setting(default="mauve")
+            shade: Shade = sourceless_setting(default="mauve")
 
     assert "cannot convert 'mauve' to enum Shade" in str(info.value)
 
@@ -214,15 +223,15 @@ def test_literal_default_outside_values_is_rejected():
     with pytest.raises(TypeError, match="mauve"):
 
         class Bad(Settings):
-            shade: Literal["red", "green"] = non_storage_setting(default="mauve")
+            shade: Literal["red", "green"] = sourceless_setting(default="mauve")
 
 
 def test_all_violations_are_listed_at_once():
     with pytest.raises(TypeError) as info:
 
         class Mixed(Settings):
-            when: datetime.datetime = non_storage_setting(default="nope")
-            endpoint: Endpoint = non_storage_setting(default=42)
+            when: datetime.datetime = sourceless_setting(default="nope")
+            endpoint: Endpoint = sourceless_setting(default=42)
 
     text = str(info.value)
     assert "Mixed" in text
@@ -238,7 +247,7 @@ def test_custom_type_default_not_an_instance_fails():
     with pytest.raises(TypeError) as info:
 
         class Bad(Settings):
-            endpoint: Endpoint = non_storage_setting(default="https://x.example")
+            endpoint: Endpoint = sourceless_setting(default="https://x.example")
 
     assert "endpoint" in str(info.value)
     assert "default 'https://x.example' is not an instance of the annotated type Endpoint" in str(
@@ -250,7 +259,7 @@ def test_custom_type_default_instance_passes():
     declared = Endpoint("https://x.example")
 
     class Good(Settings):
-        endpoint: Endpoint = non_storage_setting(default=declared)
+        endpoint: Endpoint = sourceless_setting(default=declared)
 
     assert Good.endpoint is not declared  # served as a deep copy
     assert Good.endpoint.url == "https://x.example"
@@ -258,14 +267,14 @@ def test_custom_type_default_instance_passes():
 
 def test_none_default_passes_for_a_custom_type():
     class Nullable(Settings):
-        endpoint: Endpoint = non_storage_setting(default=None)
+        endpoint: Endpoint = sourceless_setting(default=None)
 
     assert Nullable.endpoint is None
 
 
 def test_optional_custom_type_accepts_an_instance():
     class Opt(Settings):
-        endpoint: Optional[Endpoint] = non_storage_setting(default=Endpoint("https://x.example"))
+        endpoint: Optional[Endpoint] = sourceless_setting(default=Endpoint("https://x.example"))
 
     assert Opt.endpoint.url == "https://x.example"
 
@@ -275,20 +284,20 @@ def test_bare_generic_class_is_checked_subscripted_is_skipped():
     with pytest.raises(TypeError, match="is not an instance"):
 
         class BadBare(Settings):
-            box: Box = non_storage_setting(default=42)
+            box: Box = sourceless_setting(default=42)
 
     # a subscripted generic cannot be asked; it is skipped, not crashed on
     class Parametrized(Settings):
-        box: "Box[int]" = non_storage_setting(default=42)
+        box: "Box[int]" = sourceless_setting(default=42)
 
     assert Parametrized.box == 42
 
 
 def test_any_protocol_and_newtype_annotations_are_not_asked():
     class Open(Settings):
-        blob: Any = non_storage_setting(default=object())
-        runnable: Runnable = non_storage_setting(default=42)  # not @runtime_checkable
-        uid: UserId = non_storage_setting(default="not-even-an-int")
+        blob: Any = sourceless_setting(default=object())
+        runnable: Runnable = sourceless_setting(default=42)  # not @runtime_checkable
+        uid: UserId = sourceless_setting(default="not-even-an-int")
 
     assert isinstance(Open.blob, object)
     assert Open.runnable == 42
@@ -303,7 +312,7 @@ def test_container_element_not_an_instance_fails():
     with pytest.raises(TypeError) as info:
 
         class Bad(Settings):
-            points: List[Endpoint] = non_storage_setting(default=[Endpoint("https://a"), 42])
+            points: List[Endpoint] = sourceless_setting(default=[Endpoint("https://a"), 42])
 
     assert "points[1]: value 42 is not an instance of the annotated type Endpoint" in str(
         info.value
@@ -314,7 +323,7 @@ def test_nested_containers_are_walked_to_the_bottom():
     with pytest.raises(TypeError) as info:
 
         class Bad(Settings):
-            grid: List[List[Endpoint]] = non_storage_setting(default=[[42]])
+            grid: List[List[Endpoint]] = sourceless_setting(default=[[42]])
 
     assert "grid[0][0]: value 42 is not an instance of the annotated type Endpoint" in str(
         info.value
@@ -325,31 +334,31 @@ def test_mapping_keys_and_values_are_checked():
     with pytest.raises(TypeError, match=r"routes\[key 42\]"):
 
         class BadKeys(Settings):
-            routes: Dict[Endpoint, str] = non_storage_setting(default={42: "x"})
+            routes: Dict[Endpoint, str] = sourceless_setting(default={42: "x"})
 
     with pytest.raises(TypeError, match=r"routes\['x'\]"):
 
         class BadValues(Settings):
-            routes: Dict[str, Endpoint] = non_storage_setting(default={"x": 42})
+            routes: Dict[str, Endpoint] = sourceless_setting(default={"x": 42})
 
 
 def test_tuple_positions_are_checked():
     with pytest.raises(TypeError, match=r"pair\[1\]"):
 
         class BadPair(Settings):
-            pair: Tuple[str, Endpoint] = non_storage_setting(default=("a", 42))
+            pair: Tuple[str, Endpoint] = sourceless_setting(default=("a", 42))
 
     with pytest.raises(TypeError, match=r"many\[1\]"):
 
         class BadMany(Settings):
-            many: Tuple[Endpoint, ...] = non_storage_setting(default=[Endpoint("https://a"), 42])
+            many: Tuple[Endpoint, ...] = sourceless_setting(default=[Endpoint("https://a"), 42])
 
 
 def test_set_elements_are_checked():
     with pytest.raises(TypeError, match=r"unique\[0\]"):
 
         class BadSet(Settings):
-            unique: Set[Endpoint] = non_storage_setting(default=[42])
+            unique: Set[Endpoint] = sourceless_setting(default=[42])
 
 
 def test_valid_container_defaults_pass():
@@ -357,9 +366,9 @@ def test_valid_container_defaults_pass():
     second = Endpoint("https://b")
 
     class Good(Settings):
-        points: List[Endpoint] = non_storage_setting(default=[first, second])
-        routes: Dict[str, Endpoint] = non_storage_setting(default={"a": first})
-        sparse: List[Optional[Endpoint]] = non_storage_setting(default=[None, second])
+        points: List[Endpoint] = sourceless_setting(default=[first, second])
+        routes: Dict[str, Endpoint] = sourceless_setting(default={"a": first})
+        sparse: List[Optional[Endpoint]] = sourceless_setting(default=[None, second])
 
     assert [point.url for point in Good.points] == ["https://a", "https://b"]
     assert Good.routes["a"].url == "https://a"
@@ -368,7 +377,7 @@ def test_valid_container_defaults_pass():
 
 def test_none_elements_pass_everywhere():
     class WithNone(Settings):
-        points: List[Endpoint] = non_storage_setting(default=[None])
+        points: List[Endpoint] = sourceless_setting(default=[None])
 
     assert WithNone.points == [None]
 
@@ -379,7 +388,7 @@ def test_storage_form_container_default_is_checked_after_conversion():
     with pytest.raises(TypeError) as info:
 
         class Bad(Settings):
-            points: List[Endpoint] = non_storage_setting(default='[{"url": "https://a"}]')
+            points: List[Endpoint] = sourceless_setting(default='[{"url": "https://a"}]')
 
     assert "points[0]: value {'url': 'https://a'} is not an instance" in str(info.value)
 
@@ -388,12 +397,12 @@ def test_contract_elements_are_validated_by_the_conversion_itself():
     with pytest.raises(TypeError, match="cannot convert True to int"):
 
         class BadBool(Settings):
-            nums: List[int] = non_storage_setting(default=[True])
+            nums: List[int] = sourceless_setting(default=[True])
 
 
 def test_dataclass_elements_convert_instead():
     class Good(Settings):
-        proxies: List[Proxy] = non_storage_setting(default=[{"host": "h"}])
+        proxies: List[Proxy] = sourceless_setting(default=[{"host": "h"}])
 
     assert Good.proxies == [Proxy("h")]
 
@@ -401,14 +410,14 @@ def test_dataclass_elements_convert_instead():
 def test_union_element_positions_are_not_checked():
     # a union with a custom-class arm accepts anything, like on load
     class Open(Settings):
-        items: List[Union[Endpoint, int]] = non_storage_setting(default=[42])
+        items: List[Union[Endpoint, int]] = sourceless_setting(default=[42])
 
     assert Open.items == [42]
 
 
 def test_bare_containers_check_nothing_inside():
     class Bare(Settings):
-        items: list = non_storage_setting(default=[42])
+        items: list = sourceless_setting(default=[42])
 
     assert Bare.items == [42]
 
@@ -421,7 +430,7 @@ def test_unresolvable_annotation_keeps_the_default_as_declared():
             pass
 
         class Unresolved(Settings):
-            inner: Inner = non_storage_setting(default=42)
+            inner: Inner = sourceless_setting(default=42)
 
         return Unresolved
 
@@ -463,7 +472,7 @@ def test_no_default_member_rejected_by_member_reference_fails_class_creation():
     with pytest.raises(TypeError) as info:
 
         class BadReference(Settings):
-            anchor: str = non_storage_setting(default="a")
+            anchor: str = sourceless_setting(default="a")
             tied: Optional[str] = environment_variable_setting(
                 name="DV_NO_DEFAULT_TIED", default=NO_DEFAULT, eq=anchor
             )
@@ -494,7 +503,7 @@ def test_no_default_member_with_falsy_when_passes():
     # while the condition member is falsy in the all-default state, the
     # constraints do not apply to the stand-in either
     class Gated(Settings):
-        tls: bool = non_storage_setting(default=False)
+        tls: bool = sourceless_setting(default=False)
         port: Optional[int] = environment_variable_setting(
             name="DV_GATED_PORT",
             default=NO_DEFAULT,

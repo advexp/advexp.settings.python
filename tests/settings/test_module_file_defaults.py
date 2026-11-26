@@ -25,20 +25,25 @@ import pytest
 
 from advexp.settings import Settings, declared_module_defaults, for_this_module
 from advexp.settings.plugin_api import register_module_default
-from advexp.settings.plugins.environment.dotenv import DotenvConfiguration, dotenv_setting
+from advexp.settings.plugins.environment.dotenv import DotenvConfiguration
 from advexp.settings.plugins.json_dynamic_settings import (
     JSONDynamicSettingsConfiguration,
     JSONDynamicSettingsPlugin,
 )
 from advexp.settings.plugins.json_settings import (
     JSONSettingsConfiguration,
-    json_setting,
     json_source,
 )
-from advexp.settings.plugins.toml_settings import TOMLSettingsConfiguration, toml_setting
-from advexp.settings.plugins.yaml_settings import YAMLSettingsConfiguration, yaml_setting
+from advexp.settings.plugins.toml_settings import TOMLSettingsConfiguration
+from advexp.settings.plugins.yaml_settings import YAMLSettingsConfiguration
+from advexp.settings_base.dotenv_setting import dotenv_setting
 from advexp.settings_base.json_file import check_json_file
+from advexp.settings_base.json_setting import (
+    json_setting,
+)
 from advexp.settings_base.module_default import _DECLARED_VALUES
+from advexp.settings_base.toml_setting import toml_setting
+from advexp.settings_base.yaml_setting import yaml_setting
 
 _FOREIGN_SOURCE = """
 import advexp.settings as adv_settings

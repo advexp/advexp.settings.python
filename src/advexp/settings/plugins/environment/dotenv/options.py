@@ -17,28 +17,29 @@ distribution rejects it.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
 from advexp.settings.plugin_api import PACKAGE_NAME
-from advexp.settings.plugins.environment.dotenv.setting import DotenvSetting
+from advexp.settings.plugins.environment.dotenv.serializer import DotenvSerializer
 from advexp.settings_base.dotenv_file import check_dotenv_file
 from advexp.settings_base.dotenv_file import (
     dotenv_file as _dotenv_file,
 )
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
-)
+from advexp.settings_base.dotenv_setting import DotenvSetting
 from advexp.settings_base.environment import NameCase
 from advexp.settings_base.environment_options import environment_options as _environment_options
 from advexp.settings_base.family_boundaries import stamped_options
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     DOTENV_SOURCE_METADATA,
     LINK_FILE_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 
 
@@ -47,7 +48,7 @@ def dotenv_source(
     name_prefix: Optional[str] = None,
     name_case: Optional[NameCase] = None,
     nested_delimiter: Optional[str] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> Mapping[str, Any]:
     """Bind a settings class to a ``.env`` file, in the form used by this
     distribution.
@@ -68,7 +69,7 @@ def dotenv_source(
     behaves as an empty one: required members are reported, and defaults stand
     in. The name may contain template slots that are resolved through
     environment variables:
-    ``dotenv_source(file=".env-{APP_ENV}", parameters=app_env)`` reads the file
+    ``dotenv_source(file=".env-{APP_ENV}", settings_profile=profile)`` reads the file
     of the environment that ``APP_ENV`` names.
 
     The naming parameters ``name_prefix``, ``name_case``, and
@@ -89,13 +90,14 @@ def dotenv_source(
     if problem is not None:
         raise TypeError(f"invalid dotenv source file: {problem}")
     templates: Tuple[str, ...] = (os.fspath(file),) if file is not None else ()
-    spelled = _link_parameters(parameters, templates, "dotenv_source")
+    spelled = _link_settings_profile(settings_profile, templates, "dotenv_source")
     entry: dict = {
         DOTENV_SOURCE_METADATA: SourceLink(
             attribute_class=DotenvSetting,
+            serializer_class=DotenvSerializer,
             params={
                 LINK_FILE_PARAM: file,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         )
     }

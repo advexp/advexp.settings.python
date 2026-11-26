@@ -14,14 +14,15 @@ import os
 from typing import Any, Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
     SourceLink,
 )
 from advexp.settings.plugins.environment.dotenv.serializer import DotenvSerializer
-from advexp.settings.plugins.environment.dotenv.setting import DotenvSetting
 from advexp.settings_base.dotenv_file import DOTENV_FILE_METADATA, check_dotenv_file
+from advexp.settings_base.dotenv_setting import DotenvSetting
 from advexp.settings_base.sources import (
     DOTENV_SOURCE_METADATA,
     LINK_FILE_PARAM,
@@ -39,9 +40,15 @@ class DotenvPlugin(SettingsBasePlugin):
     is nothing separate next to it.
     """
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(DotenvSetting, DotenvSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        DotenvSetting,
+        DotenvSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:
@@ -58,17 +65,17 @@ class DotenvPlugin(SettingsBasePlugin):
         class. The declarative ``options=dotenv_source(file=...)`` binding and an
         assignment here are therefore the same channel.
         """
-        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA, default=None)
         if isinstance(link, SourceLink):
-            return link.param(LINK_FILE_PARAM)
-        return self.context.get_class_metadata(DOTENV_FILE_METADATA)
+            return link.param(LINK_FILE_PARAM, default=None)
+        return self.context.get_class_metadata(DOTENV_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:
         problem = check_dotenv_file(value)
         if problem is not None:
             raise TypeError(f"invalid dotenv source file: {problem}")
-        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(DOTENV_SOURCE_METADATA, default=None)
         if not isinstance(link, SourceLink):
             self.context.set_class_metadata(DOTENV_FILE_METADATA, value)
             return
@@ -76,6 +83,7 @@ class DotenvPlugin(SettingsBasePlugin):
             DOTENV_SOURCE_METADATA,
             SourceLink(
                 attribute_class=link.attribute_class,
+                serializer_class=link.serializer_class,
                 params={**link.params, LINK_FILE_PARAM: value},
             ),
         )

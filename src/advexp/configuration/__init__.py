@@ -38,15 +38,15 @@ print(repr(AppConfig.session_ttl))
 A bare annotation declares a required member that the chain must provide.
 An annotated assignment declares a member with that value as its default.
 To add constraints or aliases, use
-:func:`advexp.configuration.chain_setting`. To declare a member that lives
+:func:`advexp.configuration.setting`. To declare a member that lives
 outside the chain (a value that the sources never change), use
-:func:`advexp.configuration.constant_setting`:
+:func:`advexp.configuration.sourceless_setting`:
 
 ```python
 import advexp.configuration as adv_config
 
 class Endpoints(adv_config.Configuration):
-    url: str = adv_config.constant_setting(default="https://api.example")
+    url: str = adv_config.sourceless_setting(default="https://api.example")
 
 Endpoints.load_configuration()
 print(Endpoints.url)  # https://api.example — the declared value
@@ -58,13 +58,13 @@ example, ``APP_ENV`` selects ``settings-dev.json`` or
 ``settings-prod.json``:
 
 ```python
-from advexp.configuration import env_parameter, json_source, Sources
+from advexp.configuration import settings_profile, json_source, Sources
 
-app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
 class AppConfig(adv_config.Configuration, options=Sources(
     json_source(file="app.json"),
-    json_source(file="settings-{APP_ENV}.json", parameters=app_env),
+    json_source(file="settings-{APP_ENV}.json", settings_profile=profile),
 )):
     token: str
 ```
@@ -80,11 +80,12 @@ stable release.
 # keeps everyone else out of _internal)
 # noinspection PyProtectedMember
 from advexp.configuration._internal.facade_sources import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    MISSING_SKIP,
     REQUIRED,
     AggregateLoadError,
-    ChainSetting,
     Configuration,
-    ConstantSetting,
     ConstraintViolationError,
     ConversionError,
     LibraryConfiguration,
@@ -93,36 +94,43 @@ from advexp.configuration._internal.facade_sources import (
     PluginNotEnabledError,
     SecretBytes,
     SecretStr,
+    SettingDeclarations,
+    SettingRef,
+    SourcelessSetting,
     SourceLoadError,
     Sources,
     __version__,
-    chain_setting,
-    constant_setting,
     declared_module_defaults,
-    env_parameter,
     for_this_module,
+    setting,
+    settings_profile,
+    sourceless_setting,
 )
 
 __all__ = [
     "REQUIRED",
     "AggregateLoadError",
-    "ChainSetting",
     "Configuration",
-    "ConstantSetting",
+    "SourcelessSetting",
     "ConstraintViolationError",
     "ConversionError",
     "MissingValueError",
+    "MISSING_NONE",
+    "MISSING_RAISE",
+    "MISSING_SKIP",
     "PluginNotEnabledError",
     "MemberLoadError",
     "SecretBytes",
     "SecretStr",
+    "SettingDeclarations",
+    "SettingRef",
     "LibraryConfiguration",
     "SourceLoadError",
     "Sources",
     "__version__",
-    "chain_setting",
-    "constant_setting",
+    "sourceless_setting",
     "declared_module_defaults",
-    "env_parameter",
+    "settings_profile",
     "for_this_module",
+    "setting",
 ]

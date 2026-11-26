@@ -118,14 +118,14 @@ class MyDynamicJSONSerializer(js.JSONSettingsSerializer):
         if plain_name is not None:
             plugin = context.get_plugin(MyJSONDynamicSettingsPlugin)
             try:
-                if plugin.get_setting_metadata(plain_name, "obfuscate", False):
+                if plugin.get_setting_metadata(plain_name, "obfuscate", default=False):
                     return True
             except KeyError:
                 # a name the collection does not hold carries no mark
                 pass
         # class metadata is context state: it survives loads and applies
         # for every entry of the collection at once
-        return bool(context.get_class_metadata("obfuscate_all", False))
+        return bool(context.get_class_metadata("obfuscate_all", default=False))
 
     def save(
         self,

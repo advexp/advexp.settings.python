@@ -20,14 +20,16 @@ from ruamel.yaml import YAML
 from advexp.configuration import Configuration, LibraryConfiguration, Sources
 from advexp.configuration.plugin_api import NO_DEFAULT
 from advexp.configuration.plugins.yaml_settings import (
-    YAMLSetting,
     YAMLSettingsPlugin,
     YAMLSettingsSerializer,
-    yaml_setting,
     yaml_source,
 )
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA
+from advexp.settings_base.yaml_setting import (
+    YAMLSetting,
+    yaml_setting,
+)
 
 
 class Color(enum.Enum):
@@ -106,7 +108,10 @@ def _write(path: Path, document: Any) -> None:
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(YAMLSetting) is not None
+    assert (
+        LibraryConfiguration._get_serializer_factory(YAMLSetting, "advexp.configuration")
+        is not None
+    )
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
     assert YAMLSettingsPlugin in LibraryConfiguration.registered_plugin_classes()
 
@@ -526,7 +531,7 @@ def tagged_attribute() -> Iterator[type]:
     # class, next to the stock YAMLSetting registration
     LibraryConfiguration.register_settings_attribute(TaggedYAMLSetting, TaggedYAMLSerializer)
     yield TaggedYAMLSetting
-    LibraryConfiguration._attribute_serializers.pop(TaggedYAMLSetting, None)
+    LibraryConfiguration._attribute_serializers.pop((None, TaggedYAMLSetting), None)
 
 
 def test_mixed_attribute_classes_read_one_document(configured_file, tagged_attribute):

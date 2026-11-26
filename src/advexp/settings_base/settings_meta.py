@@ -229,7 +229,18 @@ class SettingsMeta(type):
         members = cls.__dict__.get(_MEMBERS_ATTR)
         if members is not None and name in members:
             raise TypeError(
-                f"'{name}' is a setting of {cls.__name__}; "
-                f"use {cls.__name__}.delete_setting('{name}') instead of del"
+                f"'{name}' is a setting of {cls.__name__}; use "
+                f"{cls.__name__}.delete_setting('{name}') to remove the stored "
+                "value — the member itself stays declared"
+            )
+        # the ``class_metadata`` attribute is the relic of the body's
+        # declaration: the copies the channel works with live in the context,
+        # so a del would silently touch nothing the readers can see
+        if name == CLASS_METADATA_NAME and vars(cls).get(name) is not None:
+            raise TypeError(
+                f"{CLASS_METADATA_NAME} of {cls.__name__} is the declaration "
+                "of the class body, not the runtime channel; remove stored "
+                f"entries through {cls.__name__}.delete_class_metadata('name') "
+                f"or {cls.__name__}.delete_class_all_metadata()"
             )
         super().__delattr__(name)

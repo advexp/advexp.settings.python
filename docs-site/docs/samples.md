@@ -72,7 +72,7 @@ These are the samples of the read-only package, located in
   `advexp.configuration.plugin_api`.
 - [plain_declarations.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/configuration/plain_declarations.py)
   — the plain declaration style from start to finish: plain declarations,
-  `chain_setting(...)`, constant members, and the source chain together with
+  `setting(...)`, sourceless members, and the source chain together with
   the cases in which it fails with an error.
 - [environment_variables.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/configuration/environment_variables.py)
   and
@@ -97,6 +97,16 @@ These samples use both packages and are located in
   class, not to a package (the naming prefixes are per class, and file
   bindings name their own files), so the two packages coexist without
   collisions.
-- [dynamic_exchange.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/both_packages/dynamic_exchange.py)
+- [shared_declarations.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/both_packages/shared_declarations.py)
+  — one set of member declarations for both packages. A plain base
+  marked with `SettingDeclarations` holds the members; the settings
+  class and the configuration class inherit them together. The sample
+  walks the whole story: plain and rich spellings in the base, members of
+  the JSON, environment, and dotenv families, references between members that follow the poured
+  copies, a required member that refuses to load until a source provides
+  it, the body winning over the pour, mutable defaults that are copied,
+  the inert blueprint after the classes exist, and the one refused
+  combination — overriding a name that a reference points at.
+- [dynamic_settings_exchange.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/both_packages/dynamic_settings_exchange.py)
   — a dynamic collection that one package writes and the other reads back.
   The two sides share nothing except the file.

@@ -41,13 +41,13 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from advexp.settings_base.context import SettingsContext
 from advexp.settings_base.dotenv_file import DOTENV_FILE_METADATA
 from advexp.settings_base.json_file import JSON_FILE_METADATA
-from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX, LibraryConfiguration
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.toml_file import TOML_FILE_METADATA
 from advexp.settings_base.yaml_file import YAML_FILE_METADATA
 
-SOURCE_CHAIN_METADATA = "__SourceChain"
+SOURCE_CHAIN_METADATA = f"{RESERVED_KEY_PREFIX}SourceChain"
 """The class metadata key of the source chain — one key for every
 layered class of the family. The value is the :class:`Sources` object
 itself; the machinery stores it per declaring class, so inheritance
@@ -61,10 +61,10 @@ and the file families agree on this one. The file may spell template
 slots — ``settings-{APP_ENV}.json`` — resolved through the link's
 ``parameters`` at load time."""
 
-LINK_PARAMETERS_PARAM = "parameters"
+LINK_SETTINGS_PROFILE_PARAM = "settings_profile"
 """The link parameter carrying the path parameters of a templated
-``file`` — the :class:`~advexp.settings_base.env_parameter.EnvParameter`
-results the builder's ``parameters=`` spelled. An untemplated link
+``file`` — the :class:`~advexp.settings_base.settings_profile.SettingsProfile`
+results the builder's ``settings_profile=`` spelled. An untemplated link
 carries ``None``; a templated one carries the tuple the builder's
 checks left standing, and its serializer unfolds the file through them
 on every pass."""
@@ -376,7 +376,7 @@ def declared_source_links(context: SettingsContext) -> Tuple[SourceLink, ...]:
     """
     links = []
     for metadata_name in _SOURCE_LINK_KEYS:
-        link = context.get_class_metadata(metadata_name)
+        link = context.get_class_metadata(metadata_name, default=None)
         if link is not None:
             links.append(link)
     return tuple(links)

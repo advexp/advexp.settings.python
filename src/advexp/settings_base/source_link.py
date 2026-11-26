@@ -31,7 +31,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional, Type
 
 from advexp.settings_base.context import SettingsContext
+from advexp.settings_base.family_boundaries import settings_family
 from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.no_default import NO_DEFAULT
 from advexp.settings_base.settings_serializer_interface import ISettingsSerializer
 from advexp.settings_base.settings_serializer_wishes_interface import (
     ISettingsSerializerWishes,
@@ -50,8 +52,9 @@ class SourceLink:
       that the member factory of the family builds, so a member that is declared
       through that factory reads this link and no other. ``None`` means that the
       link serves no family: only the neutral members read through it.
-    - ``serializer_class``, when given, is the serializer that the link runs.
-      Without it, the machinery resolves the serializer that is registered for
+    - ``serializer_class``, when given, is the serializer that the link runs,
+      after a registered subclass of the member asks for its own. Without it,
+      the machinery resolves the serializer that is registered for
       ``attribute_class``, in the same registry that the non-layered pass uses.
     - ``params`` carries everything that the serializer reads from the link. The
       builders of the family fill it, the serializer of the family reads it, and
@@ -78,13 +81,37 @@ class SourceLink:
         return self.__attribute_class
 
     @property
+    def serializer_class(self) -> Optional[Type[ISettingsSerializer]]:
+        """The serializer class that the link carries, when the builder of its
+        family spelled one.
+
+        ``None`` for a link whose serializer resolves through the registry.
+        A rebuild of the link carries the class over, so that the copy serves
+        its members exactly as the original did.
+        """
+        return self.__serializer_class
+
+    @property
     def params(self) -> Mapping[str, Any]:
         """The link's own parameters, as the family's builder spelled them."""
         return dict(self.__params)
 
-    def param(self, name: str, default: Any = None) -> Any:
-        """Read one link parameter; ``default`` when the link has none."""
-        return self.__params.get(name, default)
+    def param(self, name: str, default: Any = NO_DEFAULT) -> Any:
+        """Read one link parameter; ``default`` when the link has none.
+
+        A missing parameter with no ``default`` raises ``KeyError``, the way a
+        plain dictionary lookup does; ``default`` serves the fallback instead.
+        """
+        if name not in self.__params:
+            if default is NO_DEFAULT:
+                available = ", ".join(sorted(self.__params)) or "none"
+                raise KeyError(
+                    f"'{name}' is not a parameter of the source link; "
+                    f"available parameters: {available}; "
+                    "pass default= to serve a fallback"
+                )
+            return default
+        return self.__params[name]
 
     def serves(self, attribute: Any) -> bool:
         """Return whether a member that is declared through ``attribute`` reads this
@@ -105,11 +132,13 @@ class SourceLink:
         """Build the serializer of this link, bound to the context of the pass.
 
         ``attribute_class`` names the own attribute class of the member when it
-        differs from the family of the link. A registered subclass is served by its
-        own registered serializer, in the same way as the non-layered pass resolves
-        it. Without it (or with no registration for it), the family class of the
-        link decides. The serializer class that was given at construction always
-        wins: a link without a family carries its own.
+        differs from the family of the link. The serializer is resolved in three
+        steps: a registered subclass of the family runs its own registered
+        serializer first; then the serializer class that the link itself carries
+        decides — this is how the links of the shared families bring the
+        serializer of their package, one member class of a family being read by
+        two distributions; and the registry for the family class of the link is
+        the last resort, the same resolution the non-layered pass uses.
 
         The context is delivered in the same way as every pass delivers it, and the
         link follows it. A serializer that implements
@@ -117,13 +146,14 @@ class SourceLink:
         also receives this link. This is how the serializer of a family reads the
         file, the subtree, and the naming of the link.
         """
-        factory = self.__serializer_class
+        family = settings_family(context.settings_class)
+        factory = None
+        if attribute_class is not None:
+            factory = LibraryConfiguration._get_serializer_factory(attribute_class, family)
         if factory is None:
-            for candidate in (attribute_class, self.__attribute_class):
-                if candidate is not None:
-                    factory = LibraryConfiguration._get_serializer_factory(candidate)
-                    if factory is not None:
-                        break
+            factory = self.__serializer_class
+        if factory is None and self.__attribute_class is not None:
+            factory = LibraryConfiguration._get_serializer_factory(self.__attribute_class, family)
         if factory is None:
             named = (
                 "the family's attribute"

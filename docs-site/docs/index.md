@@ -1,7 +1,6 @@
 # Advexp.Settings
 
-Typed application settings and configuration with pluggable backends. The
-project consists of two packages:
+Typed application settings and configuration with pluggable backends.
 
 - **Advexp.Settings** loads and saves typed settings using pluggable
   backends.
@@ -70,56 +69,111 @@ For a full introduction, see the [Configuration](configuration.md) page.
 
 ## Quick example
 
-```python
-from datetime import timedelta
+=== "Settings"
 
-import advexp.settings as adv_settings
-import advexp.settings.plugins.environment.variables as env
-import advexp.settings.plugins.json_settings as js
+    ```python
+    from datetime import timedelta
 
-
-class AppSettings(
-    adv_settings.Settings,
-    options=(
-        env.env_source(name_prefix="APP_", name_case=env.NameCase.UPPER),
-        js.json_file("app-settings.json"),
-    ),
-):
-    # read from APP_MODE: the prefix plus the member name in upper case
-    mode: str = "production"
-
-    # the same APP_SESSION_TTL address as mode, in the rich setting
-    # form, which carries the default
-    session_ttl: timedelta = adv_settings.setting(
-        default=timedelta(minutes=30)
-    )
-
-    # read from the "retries" key of the JSON file
-    retries: int = js.json_setting(name="retries", default=3)
+    import advexp.settings as adv_settings
+    import advexp.settings.plugins.environment.variables as env
+    import advexp.settings.plugins.json_settings as js
 
 
-# suppose the environment contains APP_SESSION_TTL=1:30:00
-AppSettings.load_settings()
+    class AppSettings(
+        adv_settings.Settings,
+        options=(
+            env.env_source(name_prefix="APP_", name_case=env.NameCase.UPPER),
+            js.json_file("app-settings.json"),
+        ),
+    ):
+        # read from the APP_MODE environment variable — the prefix
+        # plus the member name in upper case
+        mode: str = "production"
 
-# prints datetime.timedelta(seconds=5400):
-# the value is parsed into a timedelta, not left as a string
-print(repr(AppSettings.session_ttl))
+        # the same APP_SESSION_TTL address as mode, in the rich setting
+        # form, which carries the default
+        session_ttl: timedelta = adv_settings.setting(
+            default=timedelta(minutes=30)
+        )
 
-# assign directly on the class: values are stored per class, not
-# per instance
-AppSettings.retries = 10
+        # read from the "retries" key of the JSON file
+        retries: int = js.json_setting(name="retries", default=3)
 
-# save one setting: writes the "retries" key of the JSON file
-AppSettings.save_setting(lambda s: s.retries)
 
-# would save every setting of the class
-# AppSettings.save_settings()
-```
+    # suppose the environment contains APP_SESSION_TTL=1:30:00
+    AppSettings.load_settings()
 
-In this example, plain members such as `mode` are read only from the
-environment. The `js.json_file(...)` entry does not make JSON a source for
-every member. It only specifies the file used by JSON members such as
-`retries`. The rule is explained on the [Settings](settings.md) page.
+    # prints datetime.timedelta(seconds=5400):
+    # the value is parsed into a timedelta, not left as a string
+    print(repr(AppSettings.session_ttl))
+
+    # assign directly on the class: values are stored per class, not
+    # per instance
+    AppSettings.retries = 10
+
+    # save one setting: writes the "retries" key of the JSON file
+    AppSettings.save_setting(lambda s: s.retries)
+
+    # would save every setting of the class
+    # AppSettings.save_settings()
+    ```
+
+    In this example, plain members such as `mode` are read only from the
+    environment. The `js.json_file(...)` entry does not make JSON a source
+    for every member. It only specifies the file used by JSON members such
+    as `retries`. The rule is explained on the
+    [Settings](settings.md) page.
+
+=== "Configuration"
+
+    ```python
+    from datetime import timedelta
+
+    import advexp.configuration as adv_config
+    import advexp.configuration.plugins.environment.variables as env
+    import advexp.configuration.plugins.json_settings as js
+
+
+    class AppConfig(
+        adv_config.Configuration,
+        options=adv_config.Sources(
+            env.env_source(name_prefix="APP_", name_case=env.NameCase.UPPER),
+            js.json_source(file="app-configuration.json"),
+        ),
+    ):
+        # read from the APP_MODE environment variable — the prefix
+        # plus the member name in upper case — or, with no such
+        # variable, from the JSON file's key (the module, class
+        # and member, dotted)
+        mode: str = "production"
+
+        # the same chain as mode — APP_SESSION_TTL first, else the
+        # JSON key — in the rich setting form, which carries the
+        # default
+        session_ttl: timedelta = adv_config.setting(
+            default=timedelta(minutes=30)
+        )
+
+        # read from the "retries" key of the JSON file
+        retries: int = js.json_setting(name="retries", default=3)
+
+
+    # suppose the environment contains APP_SESSION_TTL=1:30:00
+    AppConfig.load_configuration()
+
+    # prints datetime.timedelta(seconds=5400):
+    # the value is parsed into a timedelta, not left as a string
+    print(repr(AppConfig.session_ttl))
+
+    # the loaded values are read-only: this would raise TypeError
+    # AppConfig.mode = "development"
+    ```
+
+    In this example, every plain member is read through the source chain:
+    the environment variable first, then the JSON file's key, then the
+    declared default. Unlike in Advexp.Settings, the
+    `js.json_source(...)` entry is a chain link for every member. The rule
+    is explained on the [Configuration](configuration.md) page.
 
 ## Where to go next
 

@@ -11,20 +11,27 @@ example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
 )
 from advexp.configuration.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.configuration.plugins.yaml_settings.setting import YAMLSetting
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 class YAMLSettingsPlugin(SettingsBasePlugin):
     """Plugin object for the YAML file source."""
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(YAMLSetting, YAMLSettingsSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        YAMLSetting,
+        YAMLSettingsSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:

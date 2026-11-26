@@ -18,8 +18,11 @@ role:
   :meth:`~SettingsBaseSerializer.to_storage_string`),
   :class:`SettingsBasePlugin` (context binding on top of the plugin
   contract, plus the declarative binding: a declared
-  :class:`AttributeSerializerBinding` is registered by its
-  ``setup()``);
+  :class:`AttributeSerializerBinding` is registered by its ``setup()``),
+  and :class:`ExtensionBasePlugin` (the base of the second plugin kind: the
+  same context binding over the extension contract, with no attribute and
+  no serializer — an extension adds its own operations to one
+  configuration class);
 - the read-only dynamic collections, which are the reading side of the
   entries that a writing class of the settings distribution stored:
   :class:`ReadOnlyDocumentDynamicSettingsPlugin` (the reading facade that
@@ -33,8 +36,11 @@ role:
   dynamic source implements);
 - the contracts that signatures use: :class:`ISettingAttribute` (what a
   setting attribute is, and what the metaclass detects),
-  :class:`ISettingsPlugin` (the plugin contract that ``get_plugin``
-  accepts), :class:`ISettingsSerializer` (the mandatory serializer
+  :class:`IPlugin` (the plugin contract that ``get_plugin`` accepts: a name
+  plus the bound context of one configuration class),
+  :class:`ISettingsPlugin` (the storage backend kind) and
+  :class:`IExtensionPlugin` (the extension kind),
+  :class:`ISettingsSerializer` (the mandatory serializer
   contract), :class:`ISettingsSerializerWishes`,
   :class:`ISerializerNotificationSink`, :class:`ISettingNameDescriber` and
   :class:`ISourceDescriber` (optional capabilities), and
@@ -46,9 +52,9 @@ role:
   :class:`Sources` (the chain itself) and :data:`SOURCE_CHAIN_METADATA`
   (the class metadata key under which the chain is stored). These are the
   pieces that the builder of a custom source assembles. This group also
-  contains the path parameters of a templated link: :func:`env_parameter`
-  with :class:`EnvParameter` (the declaration that the ``parameters=`` of a
-  link takes), :data:`LINK_PARAMETERS_PARAM` (the link parameter that
+  contains the path parameters of a templated link: :func:`settings_profile`
+  with :class:`SettingsProfile` (the declaration that the ``settings_profile=`` of a
+  link takes), :data:`LINK_SETTINGS_PROFILE_PARAM` (the link parameter that
   carries them) and :func:`resolve_templated_path` (the per-pass expansion
   that a file-based source runs over the file of its link);
 - registration and context: :class:`LibraryConfiguration`,
@@ -58,6 +64,9 @@ role:
 - sentinels and the error: :data:`NO_DEFAULT`, :data:`REQUIRED` (the
   default of a required member), :data:`NOT_FOUND`, and
   :class:`UserFacingError`;
+- the member address type: :data:`SettingRef`, the ``setting_name``
+  parameter of the metadata methods of the facade and the context — a
+  member name string or a getter lambda ``lambda s: s.<member>`` for it;
 - the alias helpers: :func:`setting_name_candidates` (the addresses that a
   load tries: the delivered name, then the member's declared ``aliases=``;
   the first address found wins) and :func:`spelled_with_aliases` (an
@@ -92,13 +101,23 @@ enables the plugin, and the builder is what the application passes to
 ``Sources(...)`` or ``options=``. The ``options`` modules of the bundled
 sources (``json_source``, ``env_source`` and the rest) are working
 examples.
+
+An extension plugin is the second plugin kind. It derives from
+:class:`ExtensionBasePlugin` (or implements :class:`IExtensionPlugin`
+alone), registers with the same ``register_settings_plugin(...)`` call at
+module import time, and user code reaches it through
+``Configuration.get_plugin(...)``; the class of the call is the one and
+only class the extension instance works with. An extension registers no
+attribute and no serializer, and what it offers is entirely its own API —
+this is what keeps ecosystem-oriented functionality out of the
+configuration class API.
 """
 
 # (the facade's one sanctioned import of the internals; the ruff TID251 ban
 # keeps everyone else out of _internal)
 # noinspection PyProtectedMember
 from advexp.configuration._internal.facade_sources import (
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
     NO_DEFAULT,
     NOT_FOUND,
     PACKAGE_NAME,
@@ -110,8 +129,10 @@ from advexp.configuration._internal.facade_sources import (
     DocumentDynamicSettingsPlugin,
     DynamicSettingAttribute,
     DynamicSettingsBasePlugin,
-    EnvParameter,
+    ExtensionBasePlugin,
     IDynamicSettingsInfo,
+    IExtensionPlugin,
+    IPlugin,
     ISerializerNotificationSink,
     ISettingAttribute,
     ISettingNameDescriber,
@@ -122,24 +143,26 @@ from advexp.configuration._internal.facade_sources import (
     ISourceLinkSink,
     LibraryConfiguration,
     ReadOnlyDocumentDynamicSettingsPlugin,
+    SettingRef,
     SettingsBasePlugin,
     SettingsBaseSerializer,
     SettingsContext,
+    SettingsProfile,
     SourceBinding,
     SourceLink,
     Sources,
     UserFacingError,
-    env_parameter,
     family_entry_key,
     resolve_templated_path,
     setting_name_candidates,
+    settings_profile,
     spelled_with_aliases,
 )
 
 __all__ = [
     "UserFacingError",
     "AttributeSerializerBinding",
-    "EnvParameter",
+    "SettingsProfile",
     "SettingsBaseSerializer",
     "DocumentDynamicSettingsPlugin",
     "DynamicSettingAttribute",
@@ -153,22 +176,26 @@ __all__ = [
     "ISettingNameDescriber",
     "ISourceDescriber",
     "ISourceLinkSink",
-    "LINK_PARAMETERS_PARAM",
+    "LINK_SETTINGS_PROFILE_PARAM",
     "NO_DEFAULT",
     "NOT_FOUND",
     "PACKAGE_NAME",
     "REQUIRED",
     "SOURCE_CHAIN_METADATA",
     "ConfigurationAttribute",
+    "SettingRef",
+    "IPlugin",
     "ISettingsPlugin",
     "SettingsBasePlugin",
+    "IExtensionPlugin",
+    "ExtensionBasePlugin",
     "LibraryConfiguration",
     "SettingsContext",
     "SETTINGS_CONTEXT_ATTR",
     "SourceBinding",
     "SourceLink",
     "Sources",
-    "env_parameter",
+    "settings_profile",
     "family_entry_key",
     "resolve_templated_path",
     "setting_name_candidates",

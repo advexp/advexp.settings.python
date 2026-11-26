@@ -50,6 +50,7 @@ from advexp.settings_base.json_file import (
     JSON_FILE_METADATA,
 )
 from advexp.settings_base.json_options import JSON_METADATA_OPTIONS, NAME_PATTERN
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX
 from advexp.settings_base.sources import (
     DOTENV_SOURCE_METADATA,
     ENVIRONMENT_SOURCE_METADATA,
@@ -78,14 +79,20 @@ _DEFINING_MODULES = {
     _REPO_ROOT / "src" / "advexp" / "settings_base" / "yaml_options.py",
     _REPO_ROOT / "src" / "advexp" / "settings_base" / "sources.py",
     _REPO_ROOT / "src" / "advexp" / "settings_base" / "source_link.py",
+    _REPO_ROOT / "src" / "advexp" / "settings_base" / "library_configuration.py",
 }
 # the link parameters "file" and "path" (and the mapping dictionary's
 # "mapping") stay out on purpose: they are words of the plain language a
 # message speaks, and the substring guard would flag every "the JSON
 # file ..." phrase; the builders and the serializers share them through
 # their constants alone
+# the same holds for the missing= mode words of snapshot_missing.py
+# ("raise", "none", "skip"): they are plain words, and the substring guard
+# would flag every "raises" of a match pattern or a "skipped" of a
+# message; the modes travel through their MISSING_* constants alone
 _GUARDED_VALUES = frozenset(
     {
+        RESERVED_KEY_PREFIX,
         ENVIRONMENT_METADATA_OPTIONS,
         NAME_PREFIX,
         NAME_CASE,

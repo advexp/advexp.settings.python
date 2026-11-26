@@ -1,32 +1,27 @@
 # Copyright 2026 Alexey Ivakin
 # SPDX-License-Identifier: Apache-2.0
 
-"""The setting attribute of the JSON file backend."""
+"""The family-wide member declaration of the JSON file source."""
 
 from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Optional, Sequence
 
-from advexp.settings.plugin_api import NO_DEFAULT, SettingsAttribute
+from advexp.settings_base.base_attribute import BaseAttribute
 from advexp.settings_base.pointer import pointer_steps
+from advexp.settings_base.required import REQUIRED
 
 
-class JSONSetting(SettingsAttribute):
-    """Setting attribute: the value is stored in the JSON settings file.
+class JSONSetting(BaseAttribute):
+    """Setting attribute: the value lives in the JSON source of the class.
 
     ``name=`` is the storage key and may contain any characters. Without it,
-    the ``{module}.{class}.{member}`` pattern is used. The optional ``path=``
-    locates the key in the document tree as a JSON Pointer (RFC 6901): a
-    leading ``/`` and slash-separated segments, where ``~1`` escapes ``/`` and
-    ``~0`` escapes ``~``. For example:
-
-    - ``path="/net/proxy"`` stores the setting inside
-      ``{"net": {"proxy": {...}}}``.
-    - ``path="/mirrors/1"`` stores it inside the second element of the
-      ``mirrors`` array.
-    - ``path="/endpoints/api.internal"`` stores it under a key that contains a
-      dot.
-
+    the name pattern of the class's JSON source is used. The optional
+    ``path=`` locates the key in the document tree as a JSON Pointer
+    (RFC 6901): a leading ``/`` and slash-separated segments, where ``~1``
+    escapes ``/`` and ``~0`` escapes ``~``. For example, ``path="/net/proxy"``
+    places the value inside ``{"net": {"proxy": {...}}}``, and
+    ``path="/mirrors/1"`` inside the second element of the ``mirrors`` array.
     A segment that consists only of digits indexes an array if the node it
     steps into is an array, and names an object key otherwise. ``path=""`` and
     ``path=None`` both mean the document root.
@@ -36,7 +31,7 @@ class JSONSetting(SettingsAttribute):
         self,
         *,
         name: Optional[str] = None,
-        default: Any = NO_DEFAULT,
+        default: Any = REQUIRED,
         path: Optional[str] = None,
         metadata: Optional[Mapping[str, Any]] = None,
         aliases: Optional[Sequence[str]] = None,
@@ -78,7 +73,7 @@ class JSONSetting(SettingsAttribute):
 def json_setting(
     *,
     name: Optional[str] = None,
-    default: Any = NO_DEFAULT,
+    default: Any = REQUIRED,
     path: Optional[str] = None,
     metadata: Optional[Mapping[str, Any]] = None,
     aliases: Optional[Sequence[str]] = None,
@@ -94,30 +89,36 @@ def json_setting(
     validator: Optional[Callable[[Any], bool]] = None,
     when: Any = None,
 ) -> Any:
-    """Declare a JSON-file setting. This is the type-checker-friendly spelling of
-    ``JSONSetting``.
+    """Declare a member whose value lives in the JSON source of its class.
 
-    It builds exactly the attribute that the class builds, with the same
-    keyword parameters. Both spellings exist because of typing. Assigning an
-    attribute instance to an annotated member
-    (``port: int = JSONSetting(...)``) is valid Python (the settings metaclass
-    replaces the attribute with a value descriptor), but type checkers cannot
-    see the replacement and report a type mismatch. They accept a plain
-    function that returns ``Any``. The ``Any`` return also leaves ``default=``
-    unchecked, deliberately: a default may be given in its storage form
-    (``default="4"`` for an ``int`` member), and it is converted at class
-    creation, where a default that cannot be converted makes the ``class``
-    statement fail.
+    The member reads the JSON source that the class declares — the one JSON
+    binding of a settings class, or a JSON link of a configuration class's
+    chain — and the class may not declare none: the ``class`` statement
+    refuses a JSON member whose class has no JSON source to serve it.
 
-    ``aliases=`` declares additional full storage keys. A load looks up the
+    The factory is family-wide: it belongs to no distribution, works in the
+    body of a settings class of either package and in a declaration base
+    (:class:`~advexp.settings_base.setting_declarations.SettingDeclarations`)
+    that the settings and configuration classes inherit, and both packages
+    re-export it from their roots — the import may name either one, it is the
+    same function. If ``default=`` is omitted (or is
+    :data:`~advexp.settings_base.required.REQUIRED`), the member is required:
+    the JSON source must provide its value, or the load aborts. An optional
+    member says so explicitly with ``default=None``.
+
+    ``name=`` is the storage key of the JSON document and may contain any
+    characters. Without it, the name pattern of the class's JSON source is
+    used. ``path=`` locates the key in the document tree as a JSON Pointer
+    (RFC 6901), the same pointer that :class:`JSONSetting` documents.
+    ``aliases=`` declares additional full storage keys: a load looks up the
     primary key first, then the aliases in their order, and the first key
     found wins. Every alias is placed under the same ``path=``.
 
-    The keyword parameters after ``aliases`` are the declared value constraints
-    (``gt/ge/lt/le/eq/ne``, ``min_length/max_length``, ``regex``,
+    The keyword parameters after ``aliases=`` are the declared value
+    constraints (``gt/ge/lt/le/eq/ne``, ``min_length/max_length``, ``regex``,
     ``validator``, ``when``). They are the same constraints that
-    :func:`~advexp.settings.setting` documents, and they are applied wherever a
-    value reaches the member.
+    :func:`~advexp.settings_base.setting.setting` documents, and they are
+    applied wherever a value reaches the member.
     """
     return JSONSetting(
         name=name,

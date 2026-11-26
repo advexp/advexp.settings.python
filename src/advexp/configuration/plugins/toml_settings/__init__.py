@@ -37,12 +37,12 @@ it enables the source.
 from advexp.configuration.plugins.toml_settings.options import toml_source
 from advexp.configuration.plugins.toml_settings.plugin import TOMLSettingsPlugin
 from advexp.configuration.plugins.toml_settings.serializer import TOMLSettingsSerializer
-from advexp.configuration.plugins.toml_settings.setting import TOMLSetting, toml_setting
+from advexp.settings_base.toml_setting import TOMLSetting, toml_setting
 
 __all__ = [
-    "TOMLSetting",
     "TOMLSettingsPlugin",
     "TOMLSettingsSerializer",
+    "TOMLSetting",
     "toml_setting",
     "toml_source",
 ]

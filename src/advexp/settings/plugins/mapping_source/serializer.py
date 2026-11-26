@@ -37,9 +37,10 @@ from advexp.settings.plugin_api import (
     SettingsBaseSerializer,
     family_entry_key,
 )
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX
 from advexp.settings_base.source_link import SourceLink
 
-MAPPING_SOURCE_METADATA = "__MappingSource"
+MAPPING_SOURCE_METADATA = f"{RESERVED_KEY_PREFIX}MappingSource"
 """The metadata key of the mapping storage's seat. The value is the
 family's :class:`~advexp.settings.plugins.mapping_source.link.MappingStorageLink`
 — the storage's dictionary among its parameters — built by the
@@ -92,7 +93,7 @@ class MappingStorageSerializer(SettingsBaseSerializer):
         link = stored_mapping_link(self.context.settings_class)
         if link is None:
             return {}
-        values = link.param(MAPPING_PARAM)
+        values = link.param(MAPPING_PARAM, default=None)
         return values if isinstance(values, dict) else {}
 
     # -- ISettingsSerializer ---------------------------------------------------

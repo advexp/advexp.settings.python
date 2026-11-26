@@ -15,7 +15,7 @@ objects, ``null`` is ``None``, integers may contain underscores
 strings (the document follows YAML 1.2).
 
 The optional ``path=`` of
-:class:`~advexp.settings.plugins.yaml_settings.setting.YAMLSetting` locates a
+:class:`~advexp.settings_base.yaml_setting.YAMLSetting` locates a
 key in the document tree as a JSON Pointer (RFC 6901): a leading ``/`` and
 slash-separated segments with ``~1``/``~0`` escaping.
 ``YAMLSetting(name="host", path="/net/proxy")`` stores the key inside
@@ -52,7 +52,7 @@ static file is no longer reserved.
 A class that is bound through ``yaml_source(file=...)`` may spell its file,
 and the file of its dynamic entries, as a template that is filled in from an
 environment variable: ``yaml_source(file="settings-{APP_ENV}.yaml",
-parameters=env_parameter("APP_ENV", ...))`` reads and writes the file of one
+settings_profile=profile)`` reads and writes the file of one
 environment, and the values always return to the file that they were loaded
 from.
 
@@ -124,7 +124,6 @@ from advexp.settings.plugins.yaml_settings.configuration import YAMLSettingsConf
 from advexp.settings.plugins.yaml_settings.dynamic_configuration import (
     YAMLDynamicSettingsConfiguration,
 )
-from advexp.settings.plugins.yaml_settings.setting import YAMLSetting
 from advexp.settings_base.dynamic_document import (
     document_dynamic_plugin,
     dynamic_entry_placement,
@@ -132,7 +131,6 @@ from advexp.settings_base.dynamic_document import (
     dynamic_settings_names,
     resolve_dynamic_document_file,
 )
-from advexp.settings_base.env_parameter import resolve_templated_path
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.module_default import module_default_for
 from advexp.settings_base.names import (
@@ -143,11 +141,12 @@ from advexp.settings_base.names import (
     spelled_with_aliases,
 )
 from advexp.settings_base.pointer import array_index, pointer_display, pointer_steps
+from advexp.settings_base.settings_profile import resolve_templated_path
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
     YAML_SOURCE_METADATA,
 )
 from advexp.settings_base.yaml_file import (
@@ -155,6 +154,7 @@ from advexp.settings_base.yaml_file import (
     YAML_FILE_METADATA,
 )
 from advexp.settings_base.yaml_options import YAML_METADATA_OPTIONS, yaml_name_pattern
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 _FILE_LOCK = threading.RLock()
 """Serializes file reads/writes and the shared-document registry of
@@ -305,7 +305,7 @@ class YAMLSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         in this serializer reads it. A class that the builder never bound (a class
         that uses the module default) has no entry.
         """
-        link: Any = self.context.get_class_metadata(YAML_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(YAML_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     def __unfolded(self, configured: Union[str, os.PathLike]) -> str:
@@ -322,7 +322,7 @@ class YAMLSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         return resolve_templated_path(
             self.context,
             configured,
-            link.param(LINK_PARAMETERS_PARAM),
+            link.param(LINK_SETTINGS_PROFILE_PARAM, default=None),
             f"the YAML settings backend ({PACKAGE_NAME})",
         )
 
@@ -359,10 +359,10 @@ class YAMLSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         """
         link = self.__source_link()
         if link is not None:
-            file = link.param(LINK_FILE_PARAM)
+            file = link.param(LINK_FILE_PARAM, default=None)
             if file is not None:
                 return file
-        binding = self.context.get_class_metadata(YAML_FILE_METADATA)
+        binding = self.context.get_class_metadata(YAML_FILE_METADATA, default=None)
         if binding is not None:
             return binding
         declared = module_default_for(
@@ -460,7 +460,7 @@ class YAMLSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
             )
         link = self.__source_link()
         if link is not None:
-            pattern: Optional[str] = link.param(LINK_NAME_PATTERN_PARAM)
+            pattern: Optional[str] = link.param(LINK_NAME_PATTERN_PARAM, default=None)
         else:
             pattern = yaml_name_pattern(self.__yaml_options(attr))
         return get_full_setting_name(

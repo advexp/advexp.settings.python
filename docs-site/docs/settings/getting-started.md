@@ -36,7 +36,8 @@ class AppSettings(
         js.json_file("app-settings.json"),
     ),
 ):
-    # read from APP_MODE: the prefix plus the member name in upper case
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case
     mode: str = "production"
 
     # the same APP_SESSION_TTL address as mode, in the rich setting
@@ -81,6 +82,13 @@ Passes that work on a single setting take a getter lambda instead of a name
 string, for example `save_setting(lambda s: s.retries)` above. The library
 only inspects the lambda to find the member; it never calls it.
 
+!!! note "A `ClassVar` is not a member"
+
+    A `typing.ClassVar` annotation does not declare a member. It stays an
+    ordinary class attribute, and no pass touches its value — it is never
+    loaded, saved, or included in a snapshot. Use `ClassVar` for plain
+    values that simply live on the class.
+
 ### The `setting(...)` factory
 
 `advexp.settings.setting(...)` is the full-featured way to declare a plain
@@ -99,9 +107,6 @@ class ServerSettings(
         name="port", ge=1, le=65535, default=8080
     )
 ```
-
-A `typing.ClassVar` annotation does not declare a member. It stays an
-ordinary class attribute, and no pass touches its value.
 
 ### Family factories
 
@@ -284,12 +289,13 @@ The [Backends](../backends.md) page covers all of this in detail.
 
 ## Members without storage
 
-`non_storage_setting(...)` comes from the core package, so it does not need
+`sourceless_setting(...)` comes from the core package, so it does not need
 any backend module. It declares a member that is never stored:
 
 - `default=` is required.
 - The value is either the declared default or the last value assigned.
-- A load resets the member to its declared default.
+- A load, a delete, or a reset returns the member to its
+  declared default.
 - Saving and deleting skip the member.
 - Bulk updates, snapshots, constraints, and validation treat it like any
   other member.
@@ -299,22 +305,26 @@ import advexp.settings as adv_settings
 
 
 class Limits(adv_settings.Settings):
-    retries: int = adv_settings.non_storage_setting(default=3, ge=0)
+    retries: int = adv_settings.sourceless_setting(default=3, ge=0)
 ```
 
 An annotation wrapped in `typing.ClassVar` declares no member at all: the
 class does not treat it as a member, no storage ever sees it, and
 `to_dict()` does not include it. Use `ClassVar` for plain values that simply
-live on the class, and `non_storage_setting(...)` for values that should
-behave as members.
+live on the class, and `sourceless_setting(...)` for values that should
+behave as members. Before 0.2.0 the factory was spelled
+`non_storage_setting(...)`.
 
-The read-only counterpart has its own version of this concept:
-`advexp.configuration` provides `constant_setting(default=...)`. It declares
-a member whose value cannot be changed by sources or by load overrides, so
-after every load its value is always the declared one. See
+The read-only package spells the same member with the same factory:
+`advexp.configuration` re-exports `sourceless_setting(default=...)`. A
+configuration class never assigns, so there the value is always the declared
+one, and the load overrides skip the member. See
 [Configuration: Members that do not use the source chain](../configuration/getting-started.md#members-that-do-not-use-the-source-chain).
 
 ## Mixing backends in one class
+
+Before 0.2.0 the family factories were also re-exported from the package
+root; now the package of the family is their only home.
 
 Members of one class can use different backends. Each member is handled by
 the backend that its declaration selects, and `options=` provides the
@@ -732,18 +742,22 @@ A file source can take a file name template with a placeholder that is
 filled in from an environment variable. This gives you one file per
 environment, similar to the `appsettings.{env}.json` convention in .NET:
 
+Before 0.2.0 the factory was spelled `env_parameter(...)`. The argument of the builders was spelled
+`parameters=` and accepted a sequence of profiles; it takes one
+`settings_profile=` now.
+
 ```python
 import advexp.settings as adv_settings
 import advexp.settings.plugins.json_settings as js
-from advexp.settings import env_parameter
+from advexp.settings import settings_profile
 
-app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
 
 class EnvSettings(
     adv_settings.Settings,
     options=js.json_source(
-        file="settings-{APP_ENV}.json", parameters=app_env
+        file="settings-{APP_ENV}.json", settings_profile=profile
     ),
 ):
     token: str
@@ -752,10 +766,10 @@ class EnvSettings(
 - **`choices` is required.** The value is checked before the library touches
   the file system, so a typo such as `APP_ENV=prodd` fails the load with a
   clear error instead of silently turning into a missing file.
-- **The variable is not set, but the parameter has a default.** The
-  parameter's declared `default=` is used. There is no implicit default
+- **The variable is not set, but the profile has a default.** The
+  profile's declared `default=` is used. There is no implicit default
   environment.
-- **The variable is not set, and the parameter has no default.** The source
+- **The variable is not set, and the profile has no default.** The source
   cannot be resolved, so the load fails with an error that names the
   variable and the file.
 - **Saving** always writes to the file that the values were loaded from,

@@ -29,6 +29,8 @@ from advexp.configuration.plugin_api import (
 )
 from advexp.configuration.plugins.environment.variables import (
     env_source,
+)
+from advexp.settings_base.environment_variable_setting import (
     environment_variable_setting,
 )
 

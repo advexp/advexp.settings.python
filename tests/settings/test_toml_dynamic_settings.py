@@ -42,10 +42,8 @@ from advexp.settings.plugins.toml_dynamic_settings import (
 )
 from advexp.settings.plugins.toml_settings import (
     NAME_PATTERN,
-    TOMLSetting,
     TOMLSettingsConfiguration,
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.settings_base.document_dynamic_settings_plugin import _UNSET_SECTION
@@ -58,6 +56,10 @@ from advexp.settings_base.names import (
     get_full_setting_name,
 )
 from advexp.settings_base.toml_options import TOML_TABLE_SEPARATOR
+from advexp.settings_base.toml_setting import (
+    TOMLSetting,
+    toml_setting,
+)
 
 
 class Color(enum.Enum):
@@ -182,7 +184,10 @@ def test_import_enables_plugin_and_registers_pin_pair():
     # plugin's TOMLSetting binding, so the two registrations cannot clash
     pin = TOMLDynamicSettingsPlugin.binding.attribute_class
     assert pin is DynamicSettingAttribute[TOMLSetting]
-    assert LibraryConfiguration._get_serializer_factory(pin) is TOMLSettingsSerializer
+    assert (
+        LibraryConfiguration._get_serializer_factory(pin, "advexp.settings")
+        is TOMLSettingsSerializer
+    )
 
 
 def test_plugin_instance_is_cached_per_class():

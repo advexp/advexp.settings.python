@@ -120,6 +120,7 @@ __all__ = [
     "TOMLSettingsConfiguration",
     "TOMLSettingsPlugin",
     "TOML_DYNAMIC_FILE_METADATA",
+    "TOMLSetting",
     "toml_setting",
     "toml_source",
 ]

@@ -45,10 +45,6 @@ from advexp.settings.plugins.environment.variables.plugin import (
 from advexp.settings.plugins.environment.variables.serializer import (
     EnvironmentVariablesSerializer,
 )
-from advexp.settings.plugins.environment.variables.setting import (
-    EnvironmentVariableSetting,
-    environment_variable_setting,
-)
 from advexp.settings_base.environment import (
     ENVIRONMENT_METADATA_OPTIONS,
     NAME_CASE,
@@ -56,10 +52,13 @@ from advexp.settings_base.environment import (
     NESTED_DELIMITER,
     NameCase,
 )
+from advexp.settings_base.environment_variable_setting import (
+    EnvironmentVariableSetting,
+    environment_variable_setting,
+)
 
 __all__ = [
     "ENVIRONMENT_METADATA_OPTIONS",
-    "EnvironmentVariableSetting",
     "EnvironmentVariablesPlugin",
     "EnvironmentVariablesSerializer",
     "NAME_CASE",
@@ -67,5 +66,6 @@ __all__ = [
     "NESTED_DELIMITER",
     "NameCase",
     "env_source",
+    "EnvironmentVariableSetting",
     "environment_variable_setting",
 ]

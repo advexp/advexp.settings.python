@@ -66,7 +66,7 @@ class MappingSourceSerializer(SettingsBaseSerializer, ISourceLinkSink):
         The mapping of the link is the storage itself. The serializer keeps the
         own copy of the link and serves deep copies of the values that it finds.
         """
-        values = link.param(MAPPING_PARAM)
+        values = link.param(MAPPING_PARAM, default=None)
         self.__values = values if isinstance(values, Mapping) else {}
 
     # -- ISettingsSerializer ---------------------------------------------------

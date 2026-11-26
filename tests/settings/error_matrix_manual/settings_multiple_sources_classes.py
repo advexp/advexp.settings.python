@@ -12,10 +12,13 @@ from settings_storage_paths import STORAGE_DIR
 
 from advexp.settings import REQUIRED, Settings
 from advexp.settings.plugin_api import NO_DEFAULT
-from advexp.settings.plugins.environment.dotenv import dotenv_setting, dotenv_source
-from advexp.settings.plugins.environment.variables import environment_variable_setting
-from advexp.settings.plugins.json_settings import json_setting, json_source
-from advexp.settings.plugins.toml_settings import toml_setting, toml_source
+from advexp.settings.plugins.environment.dotenv import dotenv_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings.plugins.toml_settings import toml_source
+from advexp.settings_base.dotenv_setting import dotenv_setting
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
+from advexp.settings_base.json_setting import json_setting
+from advexp.settings_base.toml_setting import toml_setting
 
 MULTI_JSON_FILE = STORAGE_DIR / "multi.json"
 MULTI_TOML_FILE = STORAGE_DIR / "multi.toml"

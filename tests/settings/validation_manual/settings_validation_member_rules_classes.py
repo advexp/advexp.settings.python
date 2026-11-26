@@ -15,8 +15,9 @@ passes its own checks.
 
 from settings_validation_storage_paths import STORAGE_DIR
 
-from advexp.settings import REQUIRED, Settings, non_storage_setting
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings import REQUIRED, Settings, sourceless_setting
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 RULE_OPTIONAL_JSON_FILE = STORAGE_DIR / "member-rules-optional.json"
 RULE_REQUIRED_JSON_FILE = STORAGE_DIR / "member-rules-required.json"
@@ -59,5 +60,5 @@ class AssignmentRuleSettings(Settings):
     """The port pair in memory, broken by two single assignments that each
     pass their own checks."""
 
-    lo: int = non_storage_setting(default=1024)
-    hi: int = non_storage_setting(default=65535, ge=lo)
+    lo: int = sourceless_setting(default=1024)
+    hi: int = sourceless_setting(default=65535, ge=lo)

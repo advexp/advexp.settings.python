@@ -18,14 +18,16 @@ from advexp.settings.plugin_api import NO_DEFAULT
 from advexp.settings.plugins.toml_settings import (
     NAME_PATTERN,
     TOML_METADATA_OPTIONS,
-    TOMLSetting,
     TOMLSettingsConfiguration,
     TOMLSettingsSerializer,
-    toml_setting,
     toml_source,
 )
 from advexp.settings_base.sources import LINK_NAME_PATTERN_PARAM, TOML_SOURCE_METADATA
 from advexp.settings_base.toml_options import TOML_TABLE_SEPARATOR, check_toml_options
+from advexp.settings_base.toml_setting import (
+    TOMLSetting,
+    toml_setting,
+)
 
 
 def nested(key: str, value: Any) -> Any:
@@ -217,7 +219,7 @@ def test_runtime_invalid_options_rejected_before_storing():
     ):
         GuardedSettings.set_class_metadata(TOML_METADATA_OPTIONS, {NAME_PATTERN: "{ClassName}"})
     # the previous state stands
-    assert GuardedSettings.get_class_metadata(TOML_METADATA_OPTIONS) is None
+    assert not GuardedSettings.contains_class_metadata(TOML_METADATA_OPTIONS)
 
 
 @pytest.mark.parametrize(
@@ -251,8 +253,11 @@ def test_the_builder_carries_the_pattern_on_its_link():
     entry = dict(toml_source(name_pattern="{FieldName}"))
     assert set(entry) == {TOML_SOURCE_METADATA}
     link = entry[TOML_SOURCE_METADATA]
-    assert link.param(LINK_NAME_PATTERN_PARAM) == "{FieldName}"
-    assert dict(toml_source())[TOML_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM) is None
+    assert link.param(LINK_NAME_PATTERN_PARAM, default=None) == "{FieldName}"
+    assert (
+        dict(toml_source())[TOML_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM, default=None)
+        is None
+    )
 
 
 def test_the_builder_rejects_an_invalid_pattern():

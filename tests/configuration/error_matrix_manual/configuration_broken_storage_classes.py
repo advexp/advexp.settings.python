@@ -22,10 +22,14 @@ from configuration_storage_paths import STORAGE_DIR
 
 from advexp.configuration import REQUIRED, Configuration
 from advexp.configuration.plugin_api import NO_DEFAULT
-from advexp.configuration.plugins.environment.dotenv import dotenv_setting, dotenv_source
-from advexp.configuration.plugins.json_settings import json_setting, json_source
-from advexp.configuration.plugins.toml_settings import toml_setting, toml_source
-from advexp.configuration.plugins.yaml_settings import yaml_setting, yaml_source
+from advexp.configuration.plugins.environment.dotenv import dotenv_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.configuration.plugins.toml_settings import toml_source
+from advexp.configuration.plugins.yaml_settings import yaml_source
+from advexp.settings_base.dotenv_setting import dotenv_setting
+from advexp.settings_base.json_setting import json_setting
+from advexp.settings_base.toml_setting import toml_setting
+from advexp.settings_base.yaml_setting import yaml_setting
 
 CORRUPT_REQUIRED_JSON_FILE = STORAGE_DIR / "corrupt-required.json"
 CORRUPT_REQUIRED_TOML_FILE = STORAGE_DIR / "corrupt-required.toml"

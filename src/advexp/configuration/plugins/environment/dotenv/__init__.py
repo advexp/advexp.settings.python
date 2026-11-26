@@ -49,7 +49,7 @@ contains only the naming vocabulary and enables no source.
 from advexp.configuration.plugins.environment.dotenv.options import dotenv_source
 from advexp.configuration.plugins.environment.dotenv.plugin import DotenvPlugin
 from advexp.configuration.plugins.environment.dotenv.serializer import DotenvSerializer
-from advexp.configuration.plugins.environment.dotenv.setting import DotenvSetting, dotenv_setting
+from advexp.settings_base.dotenv_setting import DotenvSetting, dotenv_setting
 from advexp.settings_base.environment import (
     ENVIRONMENT_METADATA_OPTIONS,
     NAME_CASE,
@@ -65,8 +65,8 @@ __all__ = [
     "NESTED_DELIMITER",
     "DotenvPlugin",
     "DotenvSerializer",
-    "DotenvSetting",
     "NameCase",
+    "DotenvSetting",
     "dotenv_setting",
     "dotenv_source",
 ]

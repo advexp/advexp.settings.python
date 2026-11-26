@@ -14,6 +14,9 @@ from advexp.settings.plugin_api import (
     NOT_FOUND,
     AttributeSerializerBinding,
     DynamicSettingAttribute,
+    ExtensionBasePlugin,
+    IExtensionPlugin,
+    IPlugin,
     ISettingAttribute,
     ISettingsPlugin,
     LibraryConfiguration,
@@ -21,6 +24,7 @@ from advexp.settings.plugin_api import (
     SettingsBasePlugin,
     SettingsBaseSerializer,
 )
+from advexp.settings.plugins.json_settings import json_source
 
 
 class NullSerializer(SettingsBaseSerializer):
@@ -85,7 +89,7 @@ def test_base_plugin_setup_registers_the_declared_binding():
     try:
         assert LibraryConfiguration._get_serializer_factory(DeclaredAttribute) is DeclaredSerializer
     finally:
-        LibraryConfiguration._attribute_serializers.pop(DeclaredAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, DeclaredAttribute), None)
 
 
 def test_base_plugin_setup_registers_nothing_without_the_pair():
@@ -153,6 +157,101 @@ def test_plugin_implementing_only_the_interface_works():
     assert isinstance(plugin, InterfaceOnlyPlugin)
 
 
+# -- extension plugins ------------------------------------------------------
+
+
+class RegisteredExtension(ExtensionBasePlugin):
+    """The extension of the registration tests: one operation over one class."""
+
+    @property
+    def plugin_name(self) -> str:
+        return "registered-extension"
+
+    def settings_class_name(self) -> str:
+        """A plugin-specific operation served by the bound context."""
+        return self.context.settings_class.__name__
+
+
+def test_extension_plugin_kinds_are_separate_interfaces():
+    # the two plugin kinds are disjoint markers over the common root
+    assert issubclass(ISettingsPlugin, IPlugin)
+    assert issubclass(IExtensionPlugin, IPlugin)
+    assert not issubclass(ISettingsPlugin, IExtensionPlugin)
+    assert not issubclass(IExtensionPlugin, ISettingsPlugin)
+    # the bases stand on their own kind
+    assert issubclass(SettingsBasePlugin, ISettingsPlugin)
+    assert issubclass(ExtensionBasePlugin, IExtensionPlugin)
+    assert not issubclass(ExtensionBasePlugin, ISettingsPlugin)
+
+
+def test_extension_registration_registers_no_serializer():
+    before = set(LibraryConfiguration._attribute_serializers)
+    LibraryConfiguration.register_settings_plugin(RegisteredExtension)
+    assert set(LibraryConfiguration._attribute_serializers) == before
+
+
+def test_extension_plugin_refuses_a_declared_binding():
+    with pytest.raises(TypeError, match="extension plugin"):
+
+        class BoundExtension(ExtensionBasePlugin):
+            binding = AttributeSerializerBinding(DeclaredAttribute, DeclaredSerializer)
+
+            @property
+            def plugin_name(self) -> str:
+                return "bound-extension"
+
+
+class ExtensionHostSettings(Settings):
+    pass
+
+
+class OtherExtensionHostSettings(Settings):
+    pass
+
+
+def test_extension_plugin_get_plugin_binds_the_class_context():
+    plugin = ExtensionHostSettings.get_plugin(RegisteredExtension)
+    assert plugin.context is ExtensionHostSettings.__settings_context__
+    assert plugin.settings_class_name() == "ExtensionHostSettings"
+
+
+def test_extension_plugin_instance_is_per_class():
+    first = ExtensionHostSettings.get_plugin(RegisteredExtension)
+    second = OtherExtensionHostSettings.get_plugin(RegisteredExtension)
+    assert first is not second
+    assert first.context is not second.context
+
+
+class InterfaceOnlyExtension(IExtensionPlugin):
+    """An extension implementing the contract alone, without the base class."""
+
+    def __init__(self) -> None:
+        self._bound_context = None
+
+    # -- IPlugin ---------------------------------------------------------------
+
+    @property
+    def plugin_name(self) -> str:
+        return "interface-only-extension"
+
+    @property
+    def context(self):
+        return self._bound_context
+
+    def bind_context(self, context) -> None:
+        self._bound_context = context
+
+
+LibraryConfiguration.register_settings_plugin(InterfaceOnlyExtension)
+
+
+def test_extension_implementing_only_the_interface_works():
+    plugin = ExtensionHostSettings.get_plugin(InterfaceOnlyExtension)
+    assert plugin.plugin_name == "interface-only-extension"
+    assert plugin.context is ExtensionHostSettings.__settings_context__
+    assert isinstance(plugin, InterfaceOnlyExtension)
+
+
 class SharedAttribute(SettingsAttribute):
     """Attribute registered by two plugins sharing one serializer pair."""
 
@@ -212,8 +311,8 @@ def test_pin_slot_is_independent_of_the_attribute_slot():
         assert LibraryConfiguration._get_serializer_factory(pin) is PinSerializerB
         assert LibraryConfiguration._get_serializer_factory(PinnedAttribute) is PinSerializerA
     finally:
-        LibraryConfiguration._attribute_serializers.pop(PinnedAttribute, None)
-        LibraryConfiguration._attribute_serializers.pop(pin, None)
+        LibraryConfiguration._attribute_serializers.pop((None, PinnedAttribute), None)
+        LibraryConfiguration._attribute_serializers.pop((None, pin), None)
 
 
 def test_pin_reregistration_with_different_factory_raises():
@@ -223,7 +322,7 @@ def test_pin_reregistration_with_different_factory_raises():
         with pytest.raises(ValueError, match="already registered"):
             LibraryConfiguration.register_settings_attribute(pin, PinSerializerB)
     finally:
-        LibraryConfiguration._attribute_serializers.pop(pin, None)
+        LibraryConfiguration._attribute_serializers.pop((None, pin), None)
 
 
 class InterfaceSetting(ISettingAttribute):
@@ -285,7 +384,12 @@ def interface_setting(*, name: Optional[str] = None, default: Any = NO_DEFAULT) 
     return InterfaceSetting(name=name, default=default)
 
 
-class InterfaceAttrSettings(Settings):
+class InterfaceAttrSettings(
+    Settings,
+    options=json_source(file="interface-attrs.json"),
+):
+    # a contract-only member still asks the class for its single source;
+    # the tightened membership check refuses the class without one
     mode: str = interface_setting(name="app.mode", default="production")
 
 
@@ -323,7 +427,7 @@ def test_unregistered_pin_has_no_registration():
     try:
         assert LibraryConfiguration._get_serializer_factory(pin) is None
     finally:
-        LibraryConfiguration._attribute_serializers.pop(PinnedAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, PinnedAttribute), None)
 
 
 def test_setting_attribute_interface_is_an_abc():

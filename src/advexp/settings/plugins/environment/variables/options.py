@@ -18,11 +18,12 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from advexp.settings.plugin_api import PACKAGE_NAME
-from advexp.settings.plugins.environment.variables.setting import (
-    EnvironmentVariableSetting,
+from advexp.settings.plugins.environment.variables.serializer import (
+    EnvironmentVariablesSerializer,
 )
 from advexp.settings_base.environment import NameCase
 from advexp.settings_base.environment_options import environment_options as _environment_options
+from advexp.settings_base.environment_variable_setting import EnvironmentVariableSetting
 from advexp.settings_base.family_boundaries import stamped_options
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
@@ -65,7 +66,10 @@ def env_source(
     class keeps reading its own variables.
     """
     entry: dict = {
-        ENVIRONMENT_SOURCE_METADATA: SourceLink(attribute_class=EnvironmentVariableSetting)
+        ENVIRONMENT_SOURCE_METADATA: SourceLink(
+            attribute_class=EnvironmentVariableSetting,
+            serializer_class=EnvironmentVariablesSerializer,
+        )
     }
     if name_prefix is not None or name_case is not None or nested_delimiter is not None:
         entry.update(_environment_options(name_prefix, name_case, nested_delimiter))

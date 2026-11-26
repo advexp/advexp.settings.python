@@ -11,14 +11,15 @@ usage example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     DynamicSettingAttribute,
     LibraryConfiguration,
     ReadOnlyDocumentDynamicSettingsPlugin,
 )
 from advexp.configuration.plugins.toml_settings.serializer import TOMLSettingsSerializer
-from advexp.configuration.plugins.toml_settings.setting import TOMLSetting
 from advexp.settings_base.dynamic_document import TOML_DYNAMIC_GROUP_METADATA
+from advexp.settings_base.toml_setting import TOMLSetting
 
 
 class TOMLDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
@@ -34,6 +35,8 @@ class TOMLDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
     and never touches the registration of ``TOMLSetting`` by the static source
     plugin.
     """
+
+    family = PACKAGE_NAME
 
     # the pin's own slot: the binding registered by the base setup() makes this
     # package self-sufficient — importing it alone is enough — and leaves the

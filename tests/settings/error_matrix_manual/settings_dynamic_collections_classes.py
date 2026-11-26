@@ -19,8 +19,10 @@ There are two groups of scenarios for each format:
 from settings_storage_paths import STORAGE_DIR
 
 from advexp.settings import Settings
-from advexp.settings.plugins.json_settings import json_setting, json_source
-from advexp.settings.plugins.toml_settings import toml_setting, toml_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings.plugins.toml_settings import toml_source
+from advexp.settings_base.json_setting import json_setting
+from advexp.settings_base.toml_setting import toml_setting
 
 DYNAMIC_CORRUPT_JSON_FILE = STORAGE_DIR / "dynamic-corrupt.json"
 DYNAMIC_CORRUPT_TOML_FILE = STORAGE_DIR / "dynamic-corrupt.toml"

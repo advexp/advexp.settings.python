@@ -134,10 +134,38 @@ class LocalSettings(
     session_ttl: timedelta = timedelta(minutes=30)
 ```
 
+The source builder serves a class that is allowed to carry the JSON binding.
+A class whose binding is held by another family takes its dynamic file from
+the seat of the backend instead: `json_dynamic_file(...)`, next to the
+source builder of the family that holds the class. The seat names the file
+of the dynamic entries without binding the class to the JSON storage:
+
+```python
+import advexp.settings as adv_settings
+import advexp.settings.plugins.environment.variables as env
+import advexp.settings.plugins.json_settings as js
+
+
+# env holds the class; the JSON seat names the dynamic entries' file
+class ServiceSettings(
+    adv_settings.Settings,
+    options=(
+        env.env_source(name_prefix="SERVICE_"),
+        js.json_dynamic_file("service-dynamic.json"),
+    ),
+):
+    retries: int = 3
+```
+
+The TOML and YAML backends spell the same seat as `toml_dynamic_file(...)`
+and `yaml_dynamic_file(...)`. Declaring the `dynamic_file=` parameter of a
+family's source builder next to the same family's seat fails the `class`
+statement: one metadata name would be declared twice.
+
 The `file_path` property of the plugin instance does the same thing at
-runtime: both channels write the same entry of the class's own metadata, so
-the binding is inherited along the class chain. A subclass without its own
-binding uses the nearest one above it.
+runtime: every spelling above writes the same entry of the class's own
+metadata, so the binding is inherited along the class chain. A subclass
+without its own binding uses the nearest one above it.
 
 If no dynamic file is set at any level (the default), the dynamic entries go
 into the static file. The static file is the first of these that applies:
@@ -214,9 +242,9 @@ the group of the writing class next to its source binding. The read-only
 dynamic plugin then serves the entries as a snapshot, which an explicit
 `load_configuration()` call refreshes.
 
-The reading side never writes. Every method that would modify the collection
-raises `TypeError`, which is the same protection that applies to the declared
-members in that package.
+The reading side never writes. Every method that would modify the storage or
+the collection's values raises `TypeError`, which is the same protection that
+applies to the declared members in that package.
 
 ```python
 from datetime import timedelta
@@ -242,7 +270,17 @@ class DashboardConfig(
 dashboard = DashboardConfig.get_plugin(jds.JSONDynamicSettingsPlugin)
 dashboard.load_configuration()  # this group's entries from the file
 flag = dashboard.get_setting("dark_mode", default=False)
+
+# the reader's own runtime annotation of an entry it serves
+dashboard.set_setting_metadata("dark_mode", "origin", "writer")
 ```
+
+The metadata of the entries is the reader's own runtime channel: the six
+metadata methods work on the reading collection exactly as on the writing
+one. The writer's own annotations never arrive — they are the runtime state
+of the writing process and are not stored — and the next
+`load_configuration()` clears the reader's annotations with the rebuild. The
+[metadata page](metadata.md#dynamic-collections) tells the channel's rules.
 
 `dynamic_of` names the group under which the writer's entries are stored. For
 a writer class with the default naming, this is `"app.LocalSettings"`. A
@@ -252,12 +290,13 @@ part of that pattern.
 The reading plugin has the same section parameters that this page describes.
 If the writer moved the section or switched to the flat layout, set the same
 values on the reading side before calling `load_configuration()`. The file
-levels mirror those of the writer (`dynamic_file=`, the module declaration,
-and the process-wide value). The default is the shared file, which is the
-`file=` of the class's `json_source(...)`.
+levels mirror those of the writer (`dynamic_file=` or the writer's
+`json_dynamic_file(...)` seat, the module declaration, and the process-wide
+value). The default is the shared file, which is the `file=` of the class's
+`json_source(...)`.
 
 The stored form is a contract between the two packages: a file that is
 written by one package can be read by the other. For this reason, the
 layouts described above are frozen public formats, not a private choice of
-this package. The sample `samples/both_packages/dynamic_exchange.py` walks
+this package. The sample `samples/both_packages/dynamic_settings_exchange.py` walks
 through the whole round trip, in both layouts and both formats.

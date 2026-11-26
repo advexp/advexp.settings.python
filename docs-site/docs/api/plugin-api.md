@@ -21,9 +21,15 @@ plugin, and the registration that opens a family's seats for plugins.
 
 ## The plugin side
 
+::: advexp.settings.plugin_api.IPlugin
+
 ::: advexp.settings.plugin_api.ISettingsPlugin
 
 ::: advexp.settings.plugin_api.SettingsBasePlugin
+
+::: advexp.settings.plugin_api.IExtensionPlugin
+
+::: advexp.settings.plugin_api.ExtensionBasePlugin
 
 ## The settings context
 
@@ -68,7 +74,7 @@ source chains.
 
 ::: advexp.configuration.plugin_api.SOURCE_CHAIN_METADATA
 
-::: advexp.configuration.plugin_api.LINK_PARAMETERS_PARAM
+::: advexp.configuration.plugin_api.LINK_SETTINGS_PROFILE_PARAM
 
 ::: advexp.configuration.plugin_api.resolve_templated_path
 
@@ -102,9 +108,11 @@ source chains.
 
 ::: advexp.settings.plugin_api.SettingRef
 
-::: advexp.settings.plugin_api.EnvParameter
+::: advexp.configuration.plugin_api.SettingRef
 
-::: advexp.settings.plugin_api.env_parameter
+::: advexp.settings.plugin_api.SettingsProfile
+
+::: advexp.settings.plugin_api.settings_profile
 
 ::: advexp.settings.plugin_api.setting_name_candidates
 

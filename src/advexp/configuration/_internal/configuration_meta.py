@@ -7,60 +7,74 @@ from __future__ import annotations
 
 from typing import Any, Dict, cast
 
-from advexp.configuration._internal.chain_setting import ChainSetting
 from advexp.settings_base.context import SETTINGS_CONTEXT_ATTR, SettingsContext
-from advexp.settings_base.family_boundaries import class_family
+from advexp.settings_base.family_boundaries import class_family, settings_family
+from advexp.settings_base.family_members import FAMILY_MEMBER_CLASSES
+from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.setting_declarations import expand_base_declarations
 from advexp.settings_base.setting_descriptor import expand_plain_members
 from advexp.settings_base.settings_meta import SettingsMeta
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.sources import SOURCE_CHAIN_METADATA, Sources, chain_options_entries
 
 
-def _plain_attribute(default: Any) -> ChainSetting:
-    # the plain spellings land as one member kind: the chain's own
-    # attribute, the declared value (or the required sentinel) as default
-    return ChainSetting(default=default)
-
-
 def _validate_chain_membership(settings_class: type, context: SettingsContext) -> None:
     """Make the ``class`` statement fail for a member that its chain cannot resolve.
 
-    A neutral member (a plain declaration or ``chain_setting``) reads the
+    A neutral member (a plain declaration or ``setting``) reads the
     class's chain, so a class without a chain cannot load it. The ``class``
     statement then fails with an error that names the member, instead of
     letting the load miss every address. A member declared through a family's
     factory reads the links of that family in the chain, so a chain that has no
     such link fails in the same way, naming the member and the family. Members
-    outside the chain (a constant) ask nothing of the chain and pass whatever
+    outside the chain (a sourceless member) ask nothing of the chain and pass whatever
     the chain holds.
     """
-    chain = context.get_class_metadata(SOURCE_CHAIN_METADATA)
+    chain = context.get_class_metadata(SOURCE_CHAIN_METADATA, default=None)
     members: Dict[str, Any] = cast("SettingsMeta", settings_class).__settings_members__
     for name, member in members.items():
         attribute = member.attribute
         if getattr(type(attribute), "SOURCELESS", False):
             continue
-        if isinstance(attribute, ChainSetting):
-            if chain is None:
+        if isinstance(attribute, FAMILY_MEMBER_CLASSES):
+            # a member of a shared family reads the links of that family in
+            # the chain, the same pass a member of a printed family takes
+            if chain is None or not any(link.serves(attribute) for link in chain):
                 raise TypeError(
-                    f"{settings_class.__name__}.{name} is a neutral member, but the "
-                    "class declares no source chain. Declare the chain in the "
-                    "class statement (options=Sources(...)), or bind a source "
-                    "directly, for example options=json_source(...) or "
-                    "options=env_source(...) (or a source builder from another "
-                    "family)"
+                    f"{settings_class.__name__}.{name} is declared with "
+                    f"{type(attribute).__name__}, but the class's source chain has "
+                    "no link of that family. Add one to options=, and the member "
+                    "will read from it"
                 )
             continue
-        if getattr(type(attribute), "FAMILY_NAME", None) is None:
-            # a contract-only attribute derived from the interface alone
-            # crosses no distribution boundary — the same pass the member
-            # family check gives it
+        if getattr(type(attribute), "FAMILY_NAME", None) is not None:
+            if chain is None or not any(link.serves(attribute) for link in chain):
+                raise TypeError(
+                    f"{settings_class.__name__}.{name} is declared with "
+                    f"{type(attribute).__name__}, but the class's source chain has no "
+                    f"link of that family. Add one to options=, and the member will read from it"
+                )
             continue
-        if chain is None or not any(link.serves(attribute) for link in chain):
+        if (
+            LibraryConfiguration._get_serializer_factory(
+                type(attribute), settings_family(settings_class)
+            )
+            is not None
+        ):
+            # a member of its own serializer (a custom backend) reads its own
+            # way; the chain does not name its storage
+            continue
+        # a neutral member (a plain declaration or the family-wide rich
+        # spelling): every link of the chain may serve it, so the chain itself
+        # is what the member cannot do without
+        if chain is None:
             raise TypeError(
-                f"{settings_class.__name__}.{name} is declared with "
-                f"{type(attribute).__name__}, but the class's source chain has no "
-                f"link of that family. Add one to options=, and the member will read from it"
+                f"{settings_class.__name__}.{name} is a neutral member, but the "
+                "class declares no source chain. Declare the chain in the "
+                "class statement (options=Sources(...)), or bind a source "
+                "directly, for example options=json_source(...) or "
+                "options=env_source(...) (or a source builder from another "
+                "family)"
             )
 
 
@@ -103,7 +117,10 @@ class ConfigurationMeta(SettingsMeta):
                         "sequence. The chain counts as a single entry: pass "
                         "Sources(...) containing the builders to options= instead"
                     )
-        expand_plain_members(namespace, _plain_attribute)
+        expand_plain_members(namespace)
+        # the declarations of the marked bases pour in after the body's own
+        # plain members: a name the body declares wins over the pour
+        expand_base_declarations(namespace, bases, name)
         cls = super().__new__(mcs, name, bases, namespace, options=options, **kwargs)
         context: SettingsContext = getattr(cls, SETTINGS_CONTEXT_ATTR)
         _validate_chain_membership(cls, context)

@@ -18,11 +18,12 @@ member name to a problem (an empty dict means that the class is fine).
 
 from settings_validation_storage_paths import STORAGE_DIR
 
-from advexp.settings import REQUIRED, Settings, non_storage_setting
-from advexp.settings.plugins.environment.variables import (
+from advexp.settings import REQUIRED, Settings, sourceless_setting
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.environment_variable_setting import (
     environment_variable_setting,
 )
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings_base.json_setting import json_setting
 
 HOOK_UNSETTLED_JSON_FILE = STORAGE_DIR / "hook-unsettled.json"
 HOOK_FATAL_JSON_FILE = STORAGE_DIR / "hook-fatal.json"
@@ -66,7 +67,7 @@ class HookBadReturnSettings(Settings):
     refuses the return value.
     """
 
-    value: int = non_storage_setting(default=1)
+    value: int = sourceless_setting(default=1)
 
     # no return annotation on purpose: this hook exists to break the
     # contract, and an honest "-> dict" would be a lie the checkers flag
@@ -80,7 +81,7 @@ class HookExplodingSettings(Settings):
     through as it is.
     """
 
-    mode: str = non_storage_setting(default="dev")
+    mode: str = sourceless_setting(default="dev")
 
     def __validate__(self) -> dict:
         raise ZeroDivisionError("hook bug")
@@ -91,7 +92,7 @@ class HookUnreadMemberSettings(Settings):
     of that member, in the report of every checkpoint that runs the hook.
     """
 
-    mode: str = non_storage_setting(default="dev")
+    mode: str = sourceless_setting(default="dev")
     # the variable stays unset: the member holds no value for the hook to meet
     missing: int = environment_variable_setting(name="ADVEXP_MANUAL_HOOK_MISSING", default=REQUIRED)
 
@@ -106,7 +107,7 @@ class HookUnreadMemberLoadSettings(Settings):
     the hook go into the abort together.
     """
 
-    mode: str = non_storage_setting(default="dev")
+    mode: str = sourceless_setting(default="dev")
     # the variable stays unset: the member holds no value for the hook to meet
     missing: int = environment_variable_setting(name="ADVEXP_MANUAL_HOOK_MISSING", default=REQUIRED)
 

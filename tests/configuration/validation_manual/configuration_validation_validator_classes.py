@@ -18,7 +18,8 @@ Without the gate, the ``class`` statement itself would fail.
 from configuration_validation_storage_paths import STORAGE_DIR
 
 from advexp.configuration import Configuration
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 PARITY_JSON_FILE = STORAGE_DIR / "validator-parity.json"
 EXPLODING_VALIDATOR_JSON_FILE = STORAGE_DIR / "validator-exploding.json"

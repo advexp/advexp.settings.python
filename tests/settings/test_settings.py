@@ -47,13 +47,13 @@ def test_the_core_import_is_self_sufficient():
         from advexp.settings import (
             SettingValidationError,
             Settings,
-            non_storage_setting,
+            sourceless_setting,
         )
 
 
         class Limits(Settings):
-            timeout: timedelta = non_storage_setting(default="0:30:00")
-            retries: int = non_storage_setting(default=3, ge=0)
+            timeout: timedelta = sourceless_setting(default="0:30:00")
+            retries: int = sourceless_setting(default=3, ge=0)
 
 
         # the declared defaults, converted

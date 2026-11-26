@@ -7,7 +7,7 @@ source. The tour walks through the style in full:
 
 - the three plain spellings (a bare annotation, an annotated assignment, and
   ``ClassVar``);
-- the rich ``chain_setting(...)`` form next to them;
+- the rich ``setting(...)`` form next to them;
 - the constant members outside the chain;
 - ``Sources(...)`` and the chain of a single builder;
 - the mapping link in its two forms (a dictionary that is passed in at the
@@ -15,7 +15,7 @@ source. The tour walks through the style in full:
 - the cases in which the ``class`` statement fails with an error;
 - the read-only guards;
 - inheritance of the chain;
-- a file per environment, through ``env_parameter``.
+- a file per environment, through ``settings_profile``.
 
 Run from the repository root with the package installed
 (``pip install advexp-configuration``):
@@ -87,16 +87,18 @@ class AppConfig(
     # address in every named link — the environment prefix and case
     # never touch it, the key pattern neither — and the keyword
     # parameters past it are the declared value constraints
-    port: int = adv_config.chain_setting(name="port", ge=1, le=65535, default=8080)
+    port: int = adv_config.setting(name="port", ge=1, le=65535, default=8080)
     # aliases: full literal addresses the same way, tried after the
     # primary address in every named link
-    region: str = adv_config.chain_setting(aliases=["zone"], default="eu")
+    region: str = adv_config.setting(aliases=["zone"], default="eu")
     # a constant member: outside the chain altogether — no link is ever
     # asked for it, and the load overrides skip it
-    schema_version: str = adv_config.constant_setting(default="v2")
+    schema_version: str = adv_config.sourceless_setting(default="v2")
     # a constant can carry constraints: they check the declared value,
     # while no link of the chain is ever asked for it
-    pinned_url: str = adv_config.constant_setting(default="https://api.example", regex=r"^https://")
+    pinned_url: str = adv_config.sourceless_setting(
+        default="https://api.example", regex=r"^https://"
+    )
     # a ClassVar annotation is not a member at all: the plain class
     # attribute it always was
     schema_note: ClassVar[str] = "application configuration, layout v1"
@@ -114,7 +116,7 @@ class SingleFileConfig(
 
 
 # the overlay link's file spells a slot the parameter fills per pass
-app_env = adv_config.env_parameter(ENV_VAR, choices=("dev", "prod"), default="dev")
+profile = adv_config.settings_profile(ENV_VAR, choices=("dev", "prod"), default="dev")
 
 
 class OverlayConfig(
@@ -124,7 +126,7 @@ class OverlayConfig(
         js.json_source(
             file=SAMPLES_DIR / OVERLAY_TEMPLATE,
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
         js.json_source(file=SINGLE_FILE, name_pattern="{FieldName}"),
     ),
@@ -223,7 +225,7 @@ def main() -> None:
 
     section("the plain spellings: what the class body declares")
     # the three spellings land as members of one kind: a bare annotation
-    # required, an annotated assignment defaulted, chain_setting() the
+    # required, an annotated assignment defaulted, setting() the
     # same member in its rich form. A ClassVar stays out of the machinery
     print(f"members    = {list(AppConfig.__settings_members__)}")
     print(f"ClassVar   = {AppConfig.schema_note!r} (a plain class attribute)")
@@ -258,7 +260,7 @@ def main() -> None:
     print(f"session_ttl = {AppConfig.session_ttl!r} (the environment takes precedence over it)")
     os.environ.pop(TTL_VAR)
 
-    section("chain_setting(name=...): the literal address in every link")
+    section("setting(name=...): the literal address in every link")
     # the name= of the rich spelling is the full address wherever the
     # member is looked up: the variable is exactly "port" — the link's
     # DEMO_PLAIN_ prefix and upper case never touch it — and so is the
@@ -274,7 +276,7 @@ def main() -> None:
     print(f"port       = {AppConfig.port!r} (from the literal key 'port' in the file)")
 
     section("constraints travel with the member")
-    # chain_setting(ge=1, le=65535) is checked on whatever the chain
+    # setting(ge=1, le=65535) is checked on whatever the chain
     # provides: a violating value never becomes the member's — the load
     # falls back to the declared default, and the report the pass
     # returns carries the entry. The address is the literal "port"

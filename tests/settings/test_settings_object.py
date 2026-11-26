@@ -29,7 +29,7 @@ import pytest
 from advexp.settings import Settings
 
 # noinspection PyProtectedMember
-from advexp.settings._internal.non_storage_setting import non_storage_setting
+from advexp.settings_base.sourceless_setting import sourceless_setting
 
 
 class Color(enum.Enum):
@@ -38,11 +38,11 @@ class Color(enum.Enum):
 
 
 class SnapshotSettings(Settings):
-    flag: bool = non_storage_setting(default=False)
-    count: int = non_storage_setting(default=1)
-    text: str = non_storage_setting(default="fallback")
-    shade: Optional[Color] = non_storage_setting(default=None)
-    tags: List[str] = non_storage_setting(name="tags", default=[])
+    flag: bool = sourceless_setting(default=False)
+    count: int = sourceless_setting(default=1)
+    text: str = sourceless_setting(default="fallback")
+    shade: Optional[Color] = sourceless_setting(default=None)
+    tags: List[str] = sourceless_setting(default=[])
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +74,7 @@ def test_to_object_fields_carry_the_member_names():
     # the rename-safety contract: a field the class no longer declares is a
     # loud AttributeError, not a silent dict miss
     class FreshSettings(Settings):
-        member: int = non_storage_setting(default=7)
+        member: int = sourceless_setting(default=7)
 
     snapshot = FreshSettings.to_object()
 
@@ -85,7 +85,7 @@ def test_to_object_fields_carry_the_member_names():
 
 def test_to_object_reports_effective_defaults_before_any_load():
     class FreshSettings(Settings):
-        member: int = non_storage_setting(default=7)
+        member: int = sourceless_setting(default=7)
 
     assert FreshSettings.to_object().member == 7
 
@@ -108,6 +108,31 @@ def test_snapshot_writes_stay_on_the_instance():
 
     assert SnapshotSettings.flag is False
     assert SnapshotSettings.tags == []
+
+
+def test_snapshot_deletion_removes_the_own_value_alone():
+    SnapshotSettings.count = 99
+
+    snapshot = SnapshotSettings.to_object()
+    snapshot.count = 5
+
+    del snapshot.count
+
+    # the own value is gone: the read serves the declared default, while
+    # the class keeps its stored value
+    assert snapshot.count == 1
+    assert SnapshotSettings.count == 99
+
+
+def test_snapshot_deletion_of_a_missing_own_value_answers_attribute_error():
+    snapshot = SnapshotSettings.to_object()
+
+    del snapshot.count
+
+    with pytest.raises(AttributeError, match="holds no own value for 'count'"):
+        del snapshot.count
+    # the read still answers, from the default
+    assert snapshot.count == 1
 
 
 def test_to_object_deep_copies_mutable_values():
@@ -134,10 +159,10 @@ def test_to_object_of_unset_member_does_not_corrupt_the_declared_default():
 
 def test_to_object_includes_inherited_members():
     class BaseSnap(Settings):
-        base_flag: bool = non_storage_setting(default=False)
+        base_flag: bool = sourceless_setting(default=False)
 
     class DerivedSnap(BaseSnap):
-        derived_count: int = non_storage_setting(default=3)
+        derived_count: int = sourceless_setting(default=3)
 
     snapshot = DerivedSnap.to_object()
 
@@ -204,7 +229,7 @@ def test_update_from_object_unknown_fields_raise_key_error():
 
 def test_update_from_object_rejects_a_foreign_snapshot():
     class OtherSettings(Settings):
-        other_flag: bool = non_storage_setting(default=True)
+        other_flag: bool = sourceless_setting(default=True)
 
     with pytest.raises(KeyError, match="not a setting"):
         SnapshotSettings.update_from_object(OtherSettings.to_object())

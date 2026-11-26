@@ -14,13 +14,15 @@ from advexp.settings.plugin_api import NO_DEFAULT
 from advexp.settings.plugins.json_settings import (
     JSON_METADATA_OPTIONS,
     NAME_PATTERN,
-    JSONSetting,
     JSONSettingsConfiguration,
     JSONSettingsSerializer,
-    json_setting,
     json_source,
 )
 from advexp.settings_base.json_options import check_json_options
+from advexp.settings_base.json_setting import (
+    JSONSetting,
+    json_setting,
+)
 from advexp.settings_base.sources import JSON_SOURCE_METADATA, LINK_NAME_PATTERN_PARAM
 
 
@@ -195,7 +197,7 @@ def test_runtime_invalid_options_rejected_before_storing():
     ):
         GuardedSettings.set_class_metadata(JSON_METADATA_OPTIONS, {NAME_PATTERN: "{ClassName}"})
     # the previous state stands
-    assert GuardedSettings.get_class_metadata(JSON_METADATA_OPTIONS) is None
+    assert not GuardedSettings.contains_class_metadata(JSON_METADATA_OPTIONS)
 
 
 @pytest.mark.parametrize(
@@ -229,8 +231,11 @@ def test_the_builder_carries_the_pattern_on_its_link():
     entry = dict(json_source(name_pattern="{FieldName}"))
     assert set(entry) == {JSON_SOURCE_METADATA}
     link = entry[JSON_SOURCE_METADATA]
-    assert link.param(LINK_NAME_PATTERN_PARAM) == "{FieldName}"
-    assert dict(json_source())[JSON_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM) is None
+    assert link.param(LINK_NAME_PATTERN_PARAM, default=None) == "{FieldName}"
+    assert (
+        dict(json_source())[JSON_SOURCE_METADATA].param(LINK_NAME_PATTERN_PARAM, default=None)
+        is None
+    )
 
 
 def test_the_builder_rejects_an_invalid_pattern():

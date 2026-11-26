@@ -28,14 +28,15 @@ class AppConfig(
         js.json_source(file="app-configuration.json"),
     ),
 ):
-    # read from APP_MODE — the prefix plus the member name in upper
-    # case — or, with no such variable, from the JSON file's key
-    # (the module, class and member, dotted)
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case — or, with no such
+    # variable, from the JSON file's key (the module, class
+    # and member, dotted)
     mode: str = "production"
 
     # the same chain as mode — APP_SESSION_TTL first, else the JSON
-    # key — in the rich chain_setting form, which carries the default
-    session_ttl: timedelta = adv_config.chain_setting(
+    # key — in the rich setting form, which carries the default
+    session_ttl: timedelta = adv_config.setting(
         default=timedelta(minutes=30)
     )
 
@@ -333,6 +334,8 @@ listed is read first. The bundled builders are:
   Called without a dictionary, it creates a *live* layer that the
   application fills at runtime through `mapping_source_for(cls)` (see
   below).
+- `pydantic_source(model)`: a pydantic model — the class, or one instance
+  (see below). Requires the `pydantic` extra.
 
 ```python
 from datetime import timedelta
@@ -372,6 +375,17 @@ A lookup works like this:
 - **A broken source stops the search.** If a file exists but cannot be read
   or parsed, the search stops there. Sources further down the chain never
   hide a broken source above them.
+
+`contains_member()` asks the chain whether any link holds a value for one
+member, without loading anything: the values of the class stand as they
+were. The probe checks presence alone, so a stored value that would fail
+conversion still counts, and the addresses are the same ones a load reads.
+The member is addressed by name or by a getter lambda, as everywhere else:
+
+```python
+if AppConfig.contains_member(lambda m: m.ttl):
+    print("a source of the chain holds a TTL")
+```
 
 ### The mapping source
 
@@ -426,6 +440,51 @@ How the live layer behaves:
 - A mapping source created with a dictionary cannot be refilled: its content
   is always the dictionary passed in the declaration.
 
+### The pydantic model source
+
+The pydantic model source turns a pydantic model into one link of the
+chain: the layer serves the values of the model's `model_dump()`, keyed by
+member names in the same way as the mapping source. It requires the
+`pydantic` extra: `pip install "advexp-configuration[pydantic]"`.
+
+The argument names the model in one of two forms:
+
+- The class form, `pydantic_source(AppSettings)`, constructs the model on
+  every load, so the model keeps resolving its own sources — the
+  environment, a `.env` file — as long as it lives in the chain. A model
+  that fails to construct is a broken source, like a file that cannot be
+  parsed.
+- The instance form, `pydantic_source(AppSettings(port=9000))`, freezes
+  the values of the one given instance at the declaration. It carries
+  values that the class form cannot build itself: constructor arguments,
+  a `secrets_dir=`.
+
+Values go through the common conversion, native types included: a
+`timedelta` field stays a `timedelta`, and a nested model becomes a
+dictionary, which a dataclass member accepts. Secret fields (`SecretStr`,
+`SecretBytes`) the layer unwraps on the way in, so the member's own
+annotation decides whether to wrap the value again.
+
+```python
+from advexp.configuration.plugins.pydantic import pydantic_source
+
+
+class AppConfig(
+    adv_config.Configuration,
+    options=adv_config.Sources(
+        # AppSettings is the application's pydantic-settings class
+        env.env_source(name_prefix="APP_", name_case=env.NameCase.UPPER),
+        pydantic_source(AppSettings),
+    ),
+):
+    api_token: str
+```
+
+For a working application that reads its configuration through
+pydantic-settings, [the migration
+guide](../migrating-from-pydantic-settings.md) walks the move onto this
+source step by step.
+
 ### Source path
 
 A source's `path=` makes it read keys from a subtree of its storage. This
@@ -442,7 +501,7 @@ sources. Overrides can set any member, and a source's `path=` does not limit
 them.
 
 Keys that do not match any member are dropped, and so are keys that match
-constant members. Each dropped key writes a debug record. This means you can
+sourceless members. Each dropped key writes a debug record. This means you can
 pass a dictionary from elsewhere, such as the `model_dump()` of another model
 with keys that this class never declared, and the load does not fail because
 of them:
@@ -467,32 +526,38 @@ entry, so wrap the builders in `Sources(...)`.
 
 A file source can take a file name template with named placeholders (slots).
 Each slot is filled from one environment variable. This gives you one file
+
+Before 0.2.0 the factory was spelled `env_parameter(...)`. The argument of the builders was spelled
+`parameters=` and accepted a sequence of profiles; it takes one
+`settings_profile=` now.
 per environment, similar to the `appsettings.{env}.json` convention in .NET,
 without any extra machinery:
 
 ```python
-from advexp.configuration import env_parameter
+from advexp.configuration import settings_profile
 
-app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
 
 class AppConfig(
     adv_config.Configuration,
     options=adv_config.Sources(
         js.json_source(file="app.json"),
-        js.json_source(file="settings-{APP_ENV}.json", parameters=app_env),
+        js.json_source(
+            file="settings-{APP_ENV}.json", settings_profile=profile
+        ),
     ),
 ):
     token: str
 ```
 
 By default, the slot name is the variable name (`{APP_ENV}` above). To use a
-different name in the template, set it with `env_parameter(..., slot="env")`
+different name in the template, set it with `settings_profile(..., slot="env")`
 and write `{env}` in the template. All template checks refer to slot
 names: an error names the slot, not the variable. Every file source
 (`json_source`, `toml_source`, `dotenv_source`) accepts
-`parameters=` in the same way, and one parameter can be used by several
-sources of the same class.
+`settings_profile=` in the same way, and one profile can be used by
+several sources of the same class.
 
 **`choices` is required.** It validates the value of the variable, not the
 file. The check runs before the library touches the file system, so a typo
@@ -505,10 +570,10 @@ What happens in each case:
 - **The value is valid and the file exists.** The file is read.
 - **The value is valid, but the file does not exist.** This is a normal
   miss, and the search continues down the chain.
-- **The variable is not set, but the parameter has a default.** The
-  parameter's declared `default=` is used. There is no implicit default
+- **The variable is not set, but the profile has a default.** The
+  profile's declared `default=` is used. There is no implicit default
   environment.
-- **The variable is not set, and the parameter has no default.** The source
+- **The variable is not set, and the profile has no default.** The source
   cannot be resolved, so the load fails with an error that names the
   variable and the file. Sources further down the chain do not hide the
   problem.
@@ -518,14 +583,14 @@ nothing is cached between loads. Within one load, each variable is resolved
 once, and a debug record shows the variable, its value, and the resulting
 file name.
 
-The builder checks the template and the parameters against each other when
+The builder checks the template and the profile against each other when
 it is called:
 
-- a slot without a matching parameter is an error, including a template
-  with slots but no `parameters=` at all;
-- a parameter that no slot uses is also an error.
+- a slot without a matching profile is an error, including a template
+  with slots but no `settings_profile=` at all;
+- a profile whose slot no template uses is also an error.
 
-The error message names the slot. A source without `parameters=` and without
+The error message names the slot. A source without `settings_profile=` and without
 slots is an ordinary file path. Braces that do not contain an identifier
 (`{}`, `{1}`) stay in the file name as literal text.
 
@@ -539,12 +604,16 @@ Plain declarations are the main way to declare members:
 - A `ClassVar` annotation is not a member at all; it stays an ordinary class
   attribute.
 
-`chain_setting(...)` is the full-featured way to declare a *neutral* member,
+`setting(...)` is the full-featured way to declare a *neutral* member,
 which is a member that is not tied to any source family. It accepts `name=`,
 `aliases=`, `default=`, `metadata=`, and all value constraints (from `gt` to
-`validator`, plus `when=`). Its `name=` and `aliases=` are used as complete,
+`validator`, plus `when=`). Before 0.2.0 the factory was spelled
+`chain_setting(...)`. Its `name=` and `aliases=` are used as complete,
 literal addresses in every source that looks up values by name. If no name is
 given, each source builds one using the rules of its own family.
+
+Before 0.2.0 the family factories were also re-exported from the package
+root; now the package of the family is their only home.
 
 Family factories restrict a member to the sources of one family, which are
 still read in chain order: `json_setting(...)`, `toml_setting(...)`,
@@ -581,7 +650,7 @@ class AppConfig(
     timeout: timedelta = timedelta(seconds=5)
 
     # the same chain member with a constraint
-    retries: int = adv_config.chain_setting(default=3, ge=1)
+    retries: int = adv_config.setting(default=3, ge=1)
 
     # environment variables only: APP_DB_URL
     db_url: str = env.environment_variable_setting()
@@ -592,15 +661,15 @@ class AppConfig(
     )
 ```
 
-A neutral member (a plain declaration or `chain_setting`) reads the whole
+A neutral member (a plain declaration or `setting`) reads the whole
 chain. If the class has no chain at all, the `class` statement fails, just
 as it does when a family factory has no source of its family.
-`constant_setting(default=...)` does not use the chain at all.
+`sourceless_setting(default=...)` does not use the chain at all.
 
 ## Members that do not use the source chain
 
-`constant_setting(default=...)` declares a member whose value is always the
-declared one. No source is asked for it, load overrides skip it, and a
+`sourceless_setting(default=...)` declares a member whose value is always
+the declared one. No source is asked for it, load overrides skip it, and a
 reload returns the same value. Use it for values that the application fixes
 for itself, such as a schema version:
 
@@ -609,24 +678,25 @@ import advexp.configuration as adv_config
 
 
 class Endpoints(adv_config.Configuration):
-    schema_version: int = adv_config.constant_setting(default=2)
-    url: str = adv_config.constant_setting(default="https://api.example")
-    port: int = adv_config.constant_setting(default=8080, le=65535)
+    schema_version: int = adv_config.sourceless_setting(default=2)
+    url: str = adv_config.sourceless_setting(default="https://api.example")
+    port: int = adv_config.sourceless_setting(default=8080, le=65535)
 ```
 
 `default=` is required: no source will ever provide a value, so the
-declaration must state it. A constant accepts the same constraint parameters
-as every other member factory, and its declared value is checked against
-them. Sources cannot change a constant, but its own constraints still
-apply.
+declaration must state it. The member accepts the same constraint
+parameters as every other member factory, and its declared value is checked
+against them. Sources cannot change the member, but its own constraints
+still apply. Before 0.2.0 the factory was spelled `constant_setting(...)`.
 
 An annotation wrapped in `typing.ClassVar` declares no member at all: the
 class does not treat it as a member, and `to_dict()` does not include it.
 
-The read-write counterpart has its own version of this concept:
-`advexp.settings` provides `non_storage_setting(default=...)`. It declares a
-member without any storage whose value still takes part in bulk updates and
-snapshots (see
+The read-write package spells the same member with the same factory:
+`advexp.settings` re-exports `sourceless_setting(default=...)`. There the
+member keeps the in-memory channels: an assignment sets it, bulk updates and
+snapshots treat it like any other member, and a load returns it to the
+declared value (see
 [Settings: Members without storage](../settings/getting-started.md#members-without-storage)).
 
 ## Naming options of the environment sources

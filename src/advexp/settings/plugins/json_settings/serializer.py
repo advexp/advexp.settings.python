@@ -10,7 +10,7 @@ of the binding (``json_source(name_pattern=...)``; the full
 JSON.
 
 The optional ``path=`` of
-:class:`~advexp.settings.plugins.json_settings.setting.JSONSetting` locates a
+:class:`~advexp.settings_base.json_setting.JSONSetting` locates a
 key in the document tree as a JSON Pointer (RFC 6901): a leading ``/`` and
 slash-separated segments with ``~1``/``~0`` escaping.
 ``JSONSetting(name="host", path="/net/proxy")`` stores the key inside
@@ -47,7 +47,7 @@ static file is no longer reserved.
 A class that is bound through ``json_source(file=...)`` may spell its file,
 and the file of its dynamic entries, as a template that is filled in from an
 environment variable: ``json_source(file="settings-{APP_ENV}.json",
-parameters=env_parameter("APP_ENV", ...))`` reads and writes the file of one
+settings_profile=profile)`` reads and writes the file of one
 environment, and the values always return to the file that they were loaded
 from.
 
@@ -104,7 +104,6 @@ from advexp.settings.plugins.json_settings.configuration import JSONSettingsConf
 from advexp.settings.plugins.json_settings.dynamic_configuration import (
     JSONDynamicSettingsConfiguration,
 )
-from advexp.settings.plugins.json_settings.setting import JSONSetting
 from advexp.settings_base.dynamic_document import (
     document_dynamic_plugin,
     dynamic_entry_placement,
@@ -112,13 +111,13 @@ from advexp.settings_base.dynamic_document import (
     dynamic_settings_names,
     resolve_dynamic_document_file,
 )
-from advexp.settings_base.env_parameter import resolve_templated_path
 from advexp.settings_base.file_bom import UTF8_BOM
 from advexp.settings_base.json_file import (
     JSON_DYNAMIC_FILE_METADATA,
     JSON_FILE_METADATA,
 )
 from advexp.settings_base.json_options import JSON_METADATA_OPTIONS, json_name_pattern
+from advexp.settings_base.json_setting import JSONSetting
 from advexp.settings_base.module_default import module_default_for
 from advexp.settings_base.names import (
     DEFAULT_SETTINGS_NAME_PATTERN,
@@ -128,12 +127,13 @@ from advexp.settings_base.names import (
     spelled_with_aliases,
 )
 from advexp.settings_base.pointer import array_index, pointer_display, pointer_steps
+from advexp.settings_base.settings_profile import resolve_templated_path
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     JSON_SOURCE_METADATA,
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 
 _FILE_LOCK = threading.RLock()
@@ -270,7 +270,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         in this serializer reads it. A class that the builder never bound (a class
         that uses the module default) has no entry.
         """
-        link: Any = self.context.get_class_metadata(JSON_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(JSON_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     def __unfolded(self, configured: Union[str, os.PathLike]) -> str:
@@ -287,7 +287,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         return resolve_templated_path(
             self.context,
             configured,
-            link.param(LINK_PARAMETERS_PARAM),
+            link.param(LINK_SETTINGS_PROFILE_PARAM, default=None),
             f"the JSON settings backend ({PACKAGE_NAME})",
         )
 
@@ -324,10 +324,10 @@ class JSONSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
         """
         link = self.__source_link()
         if link is not None:
-            file = link.param(LINK_FILE_PARAM)
+            file = link.param(LINK_FILE_PARAM, default=None)
             if file is not None:
                 return file
-        binding = self.context.get_class_metadata(JSON_FILE_METADATA)
+        binding = self.context.get_class_metadata(JSON_FILE_METADATA, default=None)
         if binding is not None:
             return binding
         declared = module_default_for(
@@ -425,7 +425,7 @@ class JSONSettingsSerializer(SettingsBaseSerializer, IDynamicSettingsInfo):
             )
         link = self.__source_link()
         if link is not None:
-            pattern: Optional[str] = link.param(LINK_NAME_PATTERN_PARAM)
+            pattern: Optional[str] = link.param(LINK_NAME_PATTERN_PARAM, default=None)
         else:
             pattern = json_name_pattern(self.__json_options(attr))
         return get_full_setting_name(

@@ -20,12 +20,14 @@ from advexp.settings.plugins.environment.dotenv import (
     DOTENV_FILE_METADATA,
     DotenvConfiguration,
     DotenvPlugin,
-    DotenvSetting,
-    dotenv_setting,
     dotenv_source,
 )
 from advexp.settings.plugins.environment.dotenv.serializer import DotenvSerializer
 from advexp.settings.plugins.environment.variables import env_source
+from advexp.settings_base.dotenv_setting import (
+    DotenvSetting,
+    dotenv_setting,
+)
 from advexp.settings_base.sources import DOTENV_SOURCE_METADATA
 
 # read before any fixture patches the class: the stock module default is
@@ -40,7 +42,7 @@ class FileSettings(Settings):
     flag: bool = dotenv_setting(name="TEST_ASD_FLAG", default=False)
     count: int = dotenv_setting(name="TEST_ASD_COUNT", default=0)
     when: Optional[datetime] = dotenv_setting(name="TEST_ASD_WHEN", default=None)
-    plain: str = dotenv_setting()  # falls back to the member name
+    plain: Optional[str] = dotenv_setting(default=None)  # falls back to the member name
 
 
 @dataclasses.dataclass
@@ -112,7 +114,9 @@ def reset_values():
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    assert LibraryConfiguration._get_serializer_factory(DotenvSetting) is not None
+    assert (
+        LibraryConfiguration._get_serializer_factory(DotenvSetting, "advexp.settings") is not None
+    )
     # the base attribute class itself stays unregistered
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None
 
@@ -237,7 +241,7 @@ def test_save_without_storable_values_creates_an_empty_file_and_warns(configured
     # pass's voice: a save tells its own story, and the file it did not
     # find is not news beside the warning about it
     class BareSettings(Settings):
-        token: Optional[str] = dotenv_setting(name="TEST_ASD_BARE")
+        token: Optional[str] = dotenv_setting(name="TEST_ASD_BARE", default=None)
 
     with caplog.at_level(logging.DEBUG, logger="advexp.settings"):
         BareSettings.save_settings()
@@ -257,7 +261,7 @@ def test_save_without_storable_values_keeps_an_existing_file_as_written(configur
     # its comments and blank lines are lines the library does not know,
     # and they stay exactly as written
     class BareSettings(Settings):
-        token: Optional[str] = dotenv_setting(name="TEST_ASD_BARE")
+        token: Optional[str] = dotenv_setting(name="TEST_ASD_BARE", default=None)
 
     configured_file.write_text("# deployed by hand\n", encoding="utf-8")
     with caplog.at_level(logging.WARNING, logger="advexp.settings"):

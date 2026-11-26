@@ -14,6 +14,7 @@ import os
 from typing import Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     DocumentDynamicSettingsPlugin,
     DynamicSettingAttribute,
@@ -23,15 +24,15 @@ from advexp.settings.plugins.json_settings.dynamic_configuration import (
     JSONDynamicSettingsConfiguration,
 )
 from advexp.settings.plugins.json_settings.serializer import JSONSettingsSerializer
-from advexp.settings.plugins.json_settings.setting import JSONSetting
 from advexp.settings_base.json_file import JSON_DYNAMIC_FILE_METADATA
+from advexp.settings_base.json_setting import JSONSetting
 
 
 class JSONDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
     """Plugin object for dynamic settings in the JSON settings file.
 
     The namespaced pin names the backend. Dynamic entries use the same
-    serializer and the same file as the ``JSONSetting`` members of the class,
+    serializer and the same file as the ``json_setting`` members of the class,
     so one document holds the static and the runtime settings of the class side
     by side: the static entries under their full names, and the dynamic ones in
     the dedicated section of the document (see
@@ -40,15 +41,19 @@ class JSONDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
     inherited here).
 
     The shared file is the default, not a rule. The ``dynamic_file=`` parameter
-    of the ``json_source(...)`` binding of the class (class metadata; the
-    nearest entry along the class chain wins) or the module-wide
+    of the ``json_source(...)`` binding of the class, the
+    ``json_dynamic_file(...)`` seat of the same family for a class whose
+    binding is held by another family, or the module-wide
     ``JSONDynamicSettingsConfiguration.file_path`` moves the dynamic entries to
-    a file of their own, separate from the static one.
+    a file of their own, separate from the static one. The first two are class
+    metadata; the nearest entry along the class chain wins.
 
     The pin is the own registry slot of the dynamic side: the binding ties it to
     ``JSONSettingsSerializer`` here and never touches the registration of
     ``JSONSetting`` by the static plugin.
     """
+
+    family = PACKAGE_NAME
 
     # the pin's own slot: the binding registered by the base setup() makes this
     # package self-sufficient — importing it alone is enough — and leaves the
@@ -82,7 +87,7 @@ class JSONDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
         default applies. If the module default is also unset, the dynamic entries go
         into the static file. ``delete_class_metadata`` removes the binding again.
         """
-        return self.context.get_class_metadata(JSON_DYNAMIC_FILE_METADATA)
+        return self.context.get_class_metadata(JSON_DYNAMIC_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:

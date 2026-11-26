@@ -14,18 +14,19 @@ import os
 from typing import Any, Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
     SourceLink,
 )
 from advexp.settings.plugins.toml_settings.serializer import TOMLSettingsSerializer
-from advexp.settings.plugins.toml_settings.setting import TOMLSetting
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     TOML_SOURCE_METADATA,
 )
 from advexp.settings_base.toml_file import TOML_FILE_METADATA, check_toml_file
+from advexp.settings_base.toml_setting import TOMLSetting
 
 
 class TOMLSettingsPlugin(SettingsBasePlugin):
@@ -38,9 +39,15 @@ class TOMLSettingsPlugin(SettingsBasePlugin):
     separate next to it.
     """
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(TOMLSetting, TOMLSettingsSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        TOMLSetting,
+        TOMLSettingsSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:
@@ -48,7 +55,7 @@ class TOMLSettingsPlugin(SettingsBasePlugin):
 
     def __source_link(self) -> Optional[SourceLink]:
         """The TOML source seat in the class's chain; ``None`` when unbound."""
-        link: Any = self.context.get_class_metadata(TOML_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(TOML_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     @property
@@ -64,8 +71,8 @@ class TOMLSettingsPlugin(SettingsBasePlugin):
         """
         link = self.__source_link()
         if link is not None:
-            return link.param(LINK_FILE_PARAM)
-        return self.context.get_class_metadata(TOML_FILE_METADATA)
+            return link.param(LINK_FILE_PARAM, default=None)
+        return self.context.get_class_metadata(TOML_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:
@@ -80,6 +87,7 @@ class TOMLSettingsPlugin(SettingsBasePlugin):
             TOML_SOURCE_METADATA,
             SourceLink(
                 attribute_class=link.attribute_class,
+                serializer_class=link.serializer_class,
                 params={**link.params, LINK_FILE_PARAM: value},
             ),
         )

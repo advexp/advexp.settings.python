@@ -28,14 +28,15 @@ class AppConfig(
         js.json_source(file="app-configuration.json"),
     ),
 ):
-    # read from APP_MODE — the prefix plus the member name in upper
-    # case — or, with no such variable, from the JSON file's key
-    # (the module, class and member, dotted)
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case — or, with no such
+    # variable, from the JSON file's key (the module, class
+    # and member, dotted)
     mode: str = "production"
 
     # the same chain as mode — APP_SESSION_TTL first, else the JSON
-    # key — in the rich chain_setting form, which carries the default
-    session_ttl: timedelta = adv_config.chain_setting(
+    # key — in the rich setting form, which carries the default
+    session_ttl: timedelta = adv_config.setting(
         default=timedelta(minutes=30)
     )
 
@@ -96,6 +97,11 @@ print(repr(AppConfig.session_ttl))
   declaration syntax, so you can usually move a class between them by
   changing the base class and the imports.
 
+- **Shared declarations.** Describe the members once in a plain base
+  class: the settings class and the configuration class inherit the same
+  declarations, each reading them through its own sources. See
+  [Shared declarations](shared-declarations.md).
+
 ## Where to go next
 
 - [Getting started](configuration/getting-started.md): installation and
@@ -105,10 +111,17 @@ print(repr(AppConfig.session_ttl))
 - [Value types](value-types.md): supported types and how they are converted
   from source values.
 - [Validation](validation.md): value constraints and cross-member rules.
+- [Setting metadata](metadata.md): labels and flags attached to members,
+  for use by UIs and code generators.
 - [Dynamic settings](dynamic-settings.md#reading-a-written-collection):
   reading a collection written by Advexp.Settings.
+- [Shared declarations](shared-declarations.md): one set of member
+  declarations for the settings and the configuration class.
+- [Migrating from pydantic-settings](migrating-from-pydantic-settings.md):
+  moving a working application onto this package step by step, without
+  stopping development.
+- [Settings](settings.md): Advexp.Settings, the read-write counterpart.
 - [Samples](samples.md): runnable example programs for both packages,
   located in the project's repository.
-- [Settings](settings.md): Advexp.Settings, the read-write counterpart.
 - [API reference](api/index.md): classes, exceptions, and plugin interfaces,
   generated from the docstrings.

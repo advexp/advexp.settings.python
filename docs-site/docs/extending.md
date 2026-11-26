@@ -1,8 +1,9 @@
 # Extending
 
-There are two ways to extend the library, and together they cover most
-needs: custom attribute parameters that the bundled storages react to, and
-fully custom backends built on the plugin API contracts.
+There are three ways to extend the library, and together they cover most
+needs: custom attribute parameters that the bundled storages react to,
+fully custom backends built on the plugin API contracts, and extension
+plugins that add operations to a settings class.
 
 ## Custom attribute parameters
 
@@ -119,3 +120,75 @@ Use it as a starting template.
 The [settings_api.py](https://github.com/advexp/advexp.settings.python/blob/main/samples/settings/settings_api.py)
 sample is a live tour of the application-facing API, running on a minimal
 hand-made backend.
+
+## Extension plugins
+
+A backend extends where settings come from. An extension plugin extends
+what you can do with one settings class: it registers no setting attribute
+and no serializer, and it holds no storage. This is the home for
+functionality that would otherwise grow the settings class API — a bridge
+to the models of another library, for example, belongs in an extension
+plugin, not in a method of the class.
+
+The plugin contracts form a small hierarchy. `IPlugin` carries the members
+every plugin implements (`plugin_name`, `context`, `bind_context`), and two
+disjoint kinds derive from it: `ISettingsPlugin` marks the storage backends
+and `IExtensionPlugin` marks the extensions. Both kinds register with the
+same `LibraryConfiguration.register_settings_plugin(...)` call, and user
+code reaches both through `get_plugin(...)`: the class of the call is the
+one and only class the returned instance works with. Each class gets its
+own instance, so an extension never shares state between classes.
+
+The `ExtensionBasePlugin` base class does the context bookkeeping, so an
+extension is only its own operations:
+
+```python
+from advexp.settings import Settings
+from advexp.settings.plugin_api import (
+    ExtensionBasePlugin,
+    LibraryConfiguration,
+)
+from advexp.settings.plugins.mapping_source import mapping_source
+
+
+class ClassReport(ExtensionBasePlugin):
+    """An own operation over the class the extension serves."""
+
+    @property
+    def plugin_name(self) -> str:
+        return "class-report"
+
+    def metadata_entry_count(self) -> int:
+        # the context carries the class of the get_plugin call,
+        # so an extension always reads that one class alone
+        return len(self.context.get_class_all_metadata())
+
+
+# importing the plugin's module is what registers the extension
+LibraryConfiguration.register_settings_plugin(ClassReport)
+
+
+class AppSettings(
+    Settings,
+    options=mapping_source({"mode": "production"}),
+):
+    mode: str = "production"
+
+
+print(AppSettings.get_plugin(ClassReport).metadata_entry_count())
+```
+
+The bound context offers everything the context of a backend plugin
+offers: the settings class, its member and class metadata, and the other
+plugins of the class — an extension composed with a backend reaches it
+through `self.context.get_plugin(...)`.
+
+An extension declares no storage: a `binding` declaration on a subclass of
+`ExtensionBasePlugin` fails the `class` statement with a `TypeError`. A
+backend that also ships plugin-specific operations is the ordinary
+pattern; an extension is for functionality with no storage at all.
+
+As with backends, deriving from the base class is the easy way, not a
+requirement: a plugin may implement the `IExtensionPlugin` contract alone,
+keeping the context wherever it wants. The `custom_backend.py` sample ends
+with a working extension next to its backend.

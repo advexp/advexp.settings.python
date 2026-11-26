@@ -34,9 +34,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional, Union
 
-from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX, LibraryConfiguration
 
-DOTENV_FILE_METADATA = "__DotenvFile"
+DOTENV_FILE_METADATA = f"{RESERVED_KEY_PREFIX}DotenvFile"
 """The class metadata key of the file binding — one key for both dotenv
 backends of the family. The value is the file path itself (``str`` or
 ``os.PathLike``); declaring it binds the class to a file of its own, and

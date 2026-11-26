@@ -14,32 +14,33 @@ distribution rejects it.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Union
 
 from advexp.configuration.plugin_api import PACKAGE_NAME
-from advexp.configuration.plugins.json_settings.setting import JSONSetting
+from advexp.configuration.plugins.json_settings.serializer import JSONSettingsSerializer
 from advexp.settings_base.dynamic_document import (
     JSON_DYNAMIC_GROUP_METADATA,
     check_dynamic_settings_group,
-)
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
 )
 from advexp.settings_base.json_file import (
     JSON_DYNAMIC_FILE_METADATA,
     check_json_file,
 )
+from advexp.settings_base.json_setting import JSONSetting
 from advexp.settings_base.pointer import pointer_steps
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
     LINK_PATH_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 
 
@@ -49,7 +50,7 @@ def json_source(
     name_pattern: Optional[str] = None,
     dynamic_file: Optional[Union[str, os.PathLike]] = None,
     dynamic_of: Optional[str] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> SourceBinding:
     """Declare a JSON file link, in the form used by this distribution.
 
@@ -66,7 +67,7 @@ def json_source(
 
     ``file`` names the file that the link reads. It may contain template slots
     that are resolved through environment variables:
-    ``json_source(file="settings-{APP_ENV}.json", parameters=app_env)`` reads
+    ``json_source(file="settings-{APP_ENV}.json", settings_profile=profile)`` reads
     the file of the environment that ``APP_ENV`` names. The parameters are
     declared once next to the chain and are shared by every templated link.
 
@@ -110,7 +111,7 @@ def json_source(
     templates: tuple = (os.fspath(file),)
     if dynamic_file is not None:
         templates = (os.fspath(file), os.fspath(dynamic_file))
-    spelled = _link_parameters(parameters, templates, "json_source")
+    spelled = _link_settings_profile(settings_profile, templates, "json_source")
     extras: Mapping[str, Any] = {}
     if dynamic_file is not None or dynamic_of is not None:
         extras = {
@@ -124,11 +125,12 @@ def json_source(
     return SourceBinding(
         link=SourceLink(
             attribute_class=JSONSetting,
+            serializer_class=JSONSettingsSerializer,
             params={
                 LINK_FILE_PARAM: file,
                 LINK_PATH_PARAM: path,
                 LINK_NAME_PATTERN_PARAM: name_pattern,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         ),
         extras=extras or None,

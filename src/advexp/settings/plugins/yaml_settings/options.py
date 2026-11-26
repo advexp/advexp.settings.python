@@ -21,27 +21,30 @@ applications have always done.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
 from advexp.settings.plugin_api import PACKAGE_NAME
-from advexp.settings.plugins.yaml_settings.setting import YAMLSetting
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
-)
+from advexp.settings.plugins.yaml_settings.serializer import YAMLSettingsSerializer
 from advexp.settings_base.family_boundaries import stamped_options
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
     YAML_SOURCE_METADATA,
 )
 from advexp.settings_base.yaml_file import (
     YAML_DYNAMIC_FILE_METADATA,
     check_yaml_file,
+)
+from advexp.settings_base.yaml_file import (
+    yaml_dynamic_file as _yaml_dynamic_file,
 )
 from advexp.settings_base.yaml_file import (
     yaml_file as _yaml_file,
@@ -50,13 +53,14 @@ from advexp.settings_base.yaml_options import (
     NAME_PATTERN,
     check_yaml_options,
 )
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 def yaml_source(
     file: Optional[Union[str, os.PathLike]] = None,
     name_pattern: Optional[str] = None,
     dynamic_file: Optional[Union[str, os.PathLike]] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> Mapping[str, Any]:
     """Bind a settings class to its YAML file storage, in the form used by this
     distribution.
@@ -75,9 +79,9 @@ def yaml_source(
     is not checked: any path works. A builder without ``file`` uses the module
     default of the backend. The name may contain template slots that are
     resolved through environment variables:
-    ``yaml_source(file="settings-{APP_ENV}.yaml", parameters=app_env)`` reads
-    the file of the environment that ``APP_ENV`` names. The parameters are
-    declared once next to the binding and are shared by every templated path of
+    ``yaml_source(file="settings-{APP_ENV}.yaml", settings_profile=profile)`` reads
+    the file of the environment that ``APP_ENV`` names. The profile is
+    declared once next to the binding and is shared by every templated path of
     the class.
 
     ``name_pattern`` sets the pattern that builds the keys. If it is omitted,
@@ -88,7 +92,7 @@ def yaml_source(
     ``dynamic_file`` moves the dynamic entries of the class (the settings with
     names given at runtime) into a YAML file of their own. A class without it
     keeps them in the static file. The name may contain template slots in the
-    same way as ``file``, filled from the same ``parameters``.
+    same way as ``file``, filled from the same ``settings_profile``.
 
     The binding is a metadata entry of the class itself. A subclass without its
     own ``yaml_source`` inherits the nearest one above it, and a subclass with
@@ -112,14 +116,15 @@ def yaml_source(
         templates = (os.fspath(file),)
         if dynamic_file is not None:
             templates = (os.fspath(file), os.fspath(dynamic_file))
-    spelled = _link_parameters(parameters, templates, "yaml_source")
+    spelled = _link_settings_profile(settings_profile, templates, "yaml_source")
     entry: dict = {
         YAML_SOURCE_METADATA: SourceLink(
             attribute_class=YAMLSetting,
+            serializer_class=YAMLSettingsSerializer,
             params={
                 LINK_FILE_PARAM: file,
                 LINK_NAME_PATTERN_PARAM: name_pattern,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         )
     }
@@ -139,3 +144,18 @@ def yaml_file(path: Union[str, os.PathLike]) -> Mapping[str, Any]:
     ``class`` statement of a class of another distribution reject the entry.
     """
     return stamped_options(_yaml_file(path), PACKAGE_NAME)
+
+
+def yaml_dynamic_file(path: Union[str, os.PathLike]) -> Mapping[str, Any]:
+    """Name the file of the dynamic entries of a settings class, in the form
+    used by this distribution.
+
+    The dynamic file seat names the file of the class's runtime-named
+    entries, for the class whose dynamic collection works through the YAML
+    backend while the builder of another family holds the binding. The seat
+    and its validation are part of the shared vocabulary of the backend; see
+    :func:`advexp.settings_base.yaml_file.yaml_dynamic_file`. The stamp makes
+    the ``class`` statement of a class of another distribution reject the
+    entry.
+    """
+    return stamped_options(_yaml_dynamic_file(path), PACKAGE_NAME)

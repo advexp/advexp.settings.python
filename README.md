@@ -2,9 +2,9 @@
 
 The packages on PyPI:
 
-<a href="https://pypi.org/project/advexp-settings/" target="_blank" rel="noopener noreferrer"><img src="assets/pypi-advexp-settings.svg" alt="Advexp.Settings v0.1.0 on PyPI" height="40"></a>
+<a href="https://pypi.org/project/advexp-settings/" target="_blank" rel="noopener noreferrer"><img src="assets/pypi-advexp-settings.svg" alt="Advexp.Settings v0.2.0 on PyPI" height="40"></a>
 
-<a href="https://pypi.org/project/advexp-configuration/" target="_blank" rel="noopener noreferrer"><img src="assets/pypi-advexp-configuration.svg" alt="Advexp.Configuration v0.1.0 on PyPI" height="40"></a>
+<a href="https://pypi.org/project/advexp-configuration/" target="_blank" rel="noopener noreferrer"><img src="assets/pypi-advexp-configuration.svg" alt="Advexp.Configuration v0.2.0 on PyPI" height="40"></a>
 
 The full documentation lives at <a href="https://docs.advexp.net" target="_blank" rel="noopener noreferrer">https://docs.advexp.net</a>.
 
@@ -39,7 +39,8 @@ class AppSettings(
         js.json_file("app-settings.json"),
     ),
 ):
-    # read from APP_MODE: the prefix plus the member name in upper case
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case
     mode: str = "production"
 
     # the same APP_SESSION_TTL address as mode, in the rich setting

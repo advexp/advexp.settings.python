@@ -19,7 +19,7 @@ from settings_validation_when_classes import (
     WhenConditionOnSettings,
 )
 
-from advexp.settings import Settings, non_storage_setting
+from advexp.settings import Settings, sourceless_setting
 
 
 def test_condition_off_ignores_the_constraints():
@@ -61,8 +61,8 @@ def test_when_literal_fails_the_class_statement():
     with pytest.raises(TypeError) as info:
 
         class LiteralConditionSettings(Settings):
-            flag: bool = non_storage_setting(default=False)
-            tag: str = non_storage_setting(default="xx", min_length=2, when=True)
+            flag: bool = sourceless_setting(default=False)
+            tag: str = sourceless_setting(default="xx", min_length=2, when=True)
 
     assert str(info.value) == (
         "when must reference a member of the same class, got True; "

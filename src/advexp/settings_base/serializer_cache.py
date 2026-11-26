@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, Dict, Type
 
 from advexp.settings_base.context import SettingsContext
+from advexp.settings_base.family_boundaries import settings_family
 from advexp.settings_base.library_configuration import LibraryConfiguration, SerializerFactory
 from advexp.settings_base.plugin_not_enabled_error import PluginNotEnabledError
 from advexp.settings_base.setting_attribute_interface import ISettingAttribute
@@ -30,8 +31,10 @@ class SerializerCache:
     def get_for_attribute_class(
         self, attribute_class: Type[ISettingAttribute]
     ) -> ISettingsSerializer:
-        # the serializer registered for the attribute class
-        factory = LibraryConfiguration._get_serializer_factory(attribute_class)
+        # the serializer registered for the attribute class, in the family
+        # of the settings class of this pass
+        family = settings_family(self._context.settings_class)
+        factory = LibraryConfiguration._get_serializer_factory(attribute_class, family)
         if factory is None:
             raise PluginNotEnabledError(
                 f"Cannot find a serializer for the '{attribute_class.__name__}' attribute. "

@@ -11,14 +11,15 @@ usage example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     DynamicSettingAttribute,
     LibraryConfiguration,
     ReadOnlyDocumentDynamicSettingsPlugin,
 )
 from advexp.configuration.plugins.json_settings.serializer import JSONSettingsSerializer
-from advexp.configuration.plugins.json_settings.setting import JSONSetting
 from advexp.settings_base.dynamic_document import JSON_DYNAMIC_GROUP_METADATA
+from advexp.settings_base.json_setting import JSONSetting
 
 
 class JSONDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
@@ -34,6 +35,8 @@ class JSONDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
     and never touches the registration of ``JSONSetting`` by the static source
     plugin.
     """
+
+    family = PACKAGE_NAME
 
     # the pin's own slot: the binding registered by the base setup() makes this
     # package self-sufficient — importing it alone is enough — and leaves the

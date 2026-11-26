@@ -26,11 +26,13 @@ class AggregateLoadError(MemberLoadError):
     - ``misses`` holds the optional members whose sources provided no value at
       all. These members also stand at their defaults.
 
-    These are the structural marks that tell the three groups apart. The message
-    carries each entry as a line. It opens with the channel of the distribution
-    that ran the pass (``channel``, the name under which its records are
-    logged), spelled as ``<channel> error: the load failed for ...``, so an
-    abort that the application prints names its package even away from the log.
+    These are the structural marks that tell the three groups apart. The
+    message carries each entry as a bullet, and an entry of a miss that walked
+    a whole chain empty lists its storage addresses one per line beneath it.
+    It opens with the channel of the distribution that ran the pass
+    (``channel``, the name under which its records are logged), spelled as
+    ``<channel> error: the load failed for ...``, so an abort that the
+    application prints names its package even away from the log.
 
     Every load abort is this class, however many members failed: the type of
     the exception never depends on the number of failures. A class in which all

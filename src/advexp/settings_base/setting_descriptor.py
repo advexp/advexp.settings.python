@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import copy
 import typing
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from advexp.settings_base.constraints import check_value
 from advexp.settings_base.cross_validation import effective_values
@@ -21,6 +21,7 @@ from advexp.settings_base.library_configuration import member_term
 from advexp.settings_base.member_load_error import MemberLoadError
 from advexp.settings_base.no_default import NO_DEFAULT
 from advexp.settings_base.required import REQUIRED
+from advexp.settings_base.setting import plain_member
 from advexp.settings_base.setting_attribute_interface import ISettingAttribute
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
@@ -152,6 +153,29 @@ class SettingDescriptor:
             owner.__settings_values__ = values
         values[self.name] = value
 
+    def __delete__(self, obj: Any) -> None:
+        owner = cast("SettingsMeta", type(obj))
+        own = instance_values(obj)
+        if own is not None:
+            # a snapshot holds its own copy: the delete removes that own
+            # value alone, and the next read serves the declared default
+            if self.name not in own:
+                raise AttributeError(
+                    f"this snapshot of {owner.__name__} holds no own "
+                    f"value for '{self.name}'; a read serves the "
+                    "declared default"
+                )
+            del own[self.name]
+            return
+        # a plain instance shares the class storage: an instance-scoped
+        # deletion does not exist, so the class-level tool is named
+        raise TypeError(
+            f"'{self.name}' is a setting of {owner.__name__}; the instance "
+            f"shares the class storage. Use {owner.__name__}.delete_setting"
+            f"('{self.name}') to remove the stored value — the member "
+            "itself stays declared"
+        )
+
 
 def wrap_attribute_members(namespace: Dict[str, Any]) -> None:
     """Replace setting attribute instances with their descriptors.
@@ -216,10 +240,7 @@ def _namespace_annotations(namespace: Dict[str, Any]) -> Dict[str, Any]:
     return annotations
 
 
-def expand_plain_members(
-    namespace: Dict[str, Any],
-    attribute_factory: Callable[[Any], ISettingAttribute],
-) -> None:
+def expand_plain_members(namespace: Dict[str, Any]) -> None:
     """Turn the plain annotations of the body into members, in place.
 
     This is the shared mechanics of the plain declaration style:
@@ -228,9 +249,9 @@ def expand_plain_members(
     - The value of an annotated assignment (``ttl: timedelta =
       timedelta(minutes=30)``) becomes the declared default of that member.
 
-    ``attribute_factory`` builds the attribute: it is the neutral attribute of
-    the package, with the default first, so that the two spellings produce one
-    kind of member.
+    Both spellings land as the family-wide plain member, the same attribute
+    that :func:`~advexp.settings_base.setting.setting` builds with its rich
+    parameters.
 
     A ``ClassVar`` annotation is not a member at all, and it keeps its value as
     the class attribute that it always was. A dunder that the class machinery
@@ -249,6 +270,6 @@ def expand_plain_members(
             value = namespace[name]
             if isinstance(value, ISettingAttribute):
                 continue  # a factory declaration: the richer spelling stands
-            namespace[name] = attribute_factory(value)
+            namespace[name] = plain_member(value)
         else:
-            namespace[name] = attribute_factory(REQUIRED)
+            namespace[name] = plain_member(REQUIRED)

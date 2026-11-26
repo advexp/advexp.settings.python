@@ -13,9 +13,11 @@ import pytest
 
 from advexp.configuration import Configuration, LibraryConfiguration
 from advexp.configuration.plugins.environment.variables import (
-    EnvironmentVariableSetting,
     EnvironmentVariablesPlugin,
     env_source,
+)
+from advexp.settings_base.environment_variable_setting import (
+    EnvironmentVariableSetting,
     environment_variable_setting,
 )
 
@@ -65,7 +67,9 @@ def clean_env(monkeypatch):
 def test_import_enables_plugin():
     from advexp.settings_base.base_attribute import BaseAttribute
 
-    factory = LibraryConfiguration._get_serializer_factory(EnvironmentVariableSetting)
+    factory = LibraryConfiguration._get_serializer_factory(
+        EnvironmentVariableSetting, "advexp.configuration"
+    )
     assert factory is not None
     # the base attribute class itself stays unregistered
     assert LibraryConfiguration._get_serializer_factory(BaseAttribute) is None

@@ -20,7 +20,8 @@ stand together:
 from configuration_validation_storage_paths import STORAGE_DIR
 
 from advexp.configuration import REQUIRED, Configuration
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 RULE_OPTIONAL_JSON_FILE = STORAGE_DIR / "member-rules-optional.json"
 RULE_REQUIRED_JSON_FILE = STORAGE_DIR / "member-rules-required.json"

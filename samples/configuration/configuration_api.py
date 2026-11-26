@@ -21,18 +21,21 @@ The sample walks through the following topics:
 
 - declaring members: the plain spellings (a bare annotation for a required
   member, an annotated assignment for a member with a default), next to the
-  family factories and ``chain_setting``;
+  family factories and ``setting``;
 - effective defaults before any load;
 - the one aggregate load error, with an entry for each failed member;
 - the retry after the sources are fixed;
 - the load overrides above the whole chain;
+- the chain probe (``contains_member``: which link holds a value, without
+  a load);
 - member name aliases (an old file key that serves a renamed member);
 - path parameters (an environment variable that picks the file that a link
   reads);
 - the read-only guards (class, instance, and snapshot);
 - frozen dict and object snapshots;
 - inheritance, which composes members into the own storage of a subclass;
-- access to the plugin.
+- access to the plugin;
+- the metadata channel, declared with the members and layered at runtime.
 """
 
 import json
@@ -47,6 +50,10 @@ import advexp.configuration.plugins.environment.dotenv as env_file
 import advexp.configuration.plugins.environment.variables as env
 import advexp.configuration.plugins.json_settings as js
 from advexp.configuration.plugins.mapping_source import mapping_source
+from advexp.settings_base import (
+    SettingDeclarations,
+    json_setting,
+)
 
 SAMPLES_DIR = Path(__file__).resolve().parent
 JSON_FILE = SAMPLES_DIR / "configuration-api-sample.json"
@@ -62,13 +69,31 @@ FACTOR_VAR = "DEMO_CONF_FACTOR"
 # the variable one parameterized link reads; the whitelist guards it and
 # the declared default serves an unset variable
 APP_ENV_VAR = "DEMO_CONF_APP_ENV"
-app_env = adv_config.env_parameter(APP_ENV_VAR, choices=("dev", "prod"), default="dev")
+profile = adv_config.settings_profile(APP_ENV_VAR, choices=("dev", "prod"), default="dev")
 
 # the chain's bottom layer: defaults the code itself states
 BASE_DEFAULTS = {"retries": 3}
 
 
+# ---------------------------------------------------------------------------
+# Shared declarations: the same base the settings sample inherits
+# ---------------------------------------------------------------------------
+
+
+class AppDeclarations(SettingDeclarations):
+    """Members that this configuration class shares with a settings class.
+
+    The base holds what each value is; this class configures the chain it
+    reads through. See the docs page "Shared declarations".
+    """
+
+    retries: int = adv_config.setting(default=3)
+    timeout: int = adv_config.setting(default=30, ge=retries)
+    port: int = json_setting(default=8080)  # a member of the JSON family
+
+
 class AppConfig(
+    AppDeclarations,
     adv_config.Configuration,
     options=adv_config.Sources(
         env.env_source(name_prefix="DEMO_CONF_", name_case=env.NameCase.UPPER),
@@ -85,14 +110,19 @@ class AppConfig(
     to it alone is the one-link chain of the same class.
     """
 
+    # the class's own metadata: what a UI or a schema generator reads, keyed
+    # by name at the class level
+    class_metadata = {"config-version": 2, "origin": "sample"}
+
     # a bare annotation is required: the chain must provide the value
     mode: str
     # an annotated assignment is the declared default; a family factory
     # narrows the member to its family's links alone
     retries: int = js.json_setting(name="retries", default=3)
     # the dotenv links read the bound file's variable lines; the names
-    # build by the family's shared rules (the env link declared them)
-    debug: bool = env_file.dotenv_setting(default=False)
+    # build by the family's shared rules (the env link declared them);
+    # metadata= opens the member's channel the same way
+    debug: bool = env_file.dotenv_setting(default=False, metadata={"ui-label": "Debug mode"})
     started_at: Optional[datetime] = js.json_setting(name="started_at", default=None)
     # a default in its storage form: converted to the annotation at class
     # creation, before any source access
@@ -101,9 +131,9 @@ class AppConfig(
     # primary key up first, then each alias, and the first found wins
     timeout: int = js.json_setting(name="timeout", aliases=["ttl"], default=30)
     # the chain's own rich spelling: constraints on a neutral member
-    port: int = adv_config.chain_setting(ge=1, le=65535, default=8080)
+    port: int = adv_config.setting(ge=1, le=65535, default=8080)
     # a constant member: no link is asked, no override reaches it
-    schema_version: str = adv_config.constant_setting(default="v2")
+    schema_version: str = adv_config.sourceless_setting(default="v2")
 
 
 class ServiceConfig(AppConfig):
@@ -132,7 +162,7 @@ class RegionConfig(
         js.json_source(
             file=SAMPLES_DIR / REGION_OVERLAY_TEMPLATE,
             name_pattern="{FieldName}",
-            parameters=app_env,
+            settings_profile=profile,
         ),
         js.json_source(file=REGION_BASE_FILE, name_pattern="{FieldName}"),
     ),
@@ -233,6 +263,17 @@ def main() -> None:
     print(f"schema     = {AppConfig.schema_version!r} (a constant: it cannot be overridden)")
     AppConfig.load_configuration()
 
+    section("the chain probe: contains_member asks without loading")
+    # the probe walks the chain the way a load does — the first link that
+    # holds a value answers — but builds no state of the class
+    print(f"retries    -> {AppConfig.contains_member('retries')} (a link of the chain holds it)")
+    print(
+        f"schema     -> {AppConfig.contains_member('schema_version')} (a constant: no link is asked)"
+    )
+    print(f"endpoint   -> {ServiceConfig.contains_member('endpoint')} (no link holds it)")
+    print(f"getter     -> {AppConfig.contains_member(lambda m: m.retries)} (the lambda form)")
+    print(f"retries    = {AppConfig.retries!r} (the probe loaded nothing)")
+
     section("values are read-only: the guards on every write path")
     try:
         AppConfig.retries = 10
@@ -303,6 +344,24 @@ def main() -> None:
     except TypeError as error:
         print(f"write      -> TypeError: {error}")
 
+    # a required member that never got a value fails to_dict(); the
+    # missing= mode says what it becomes instead — the same modes and
+    # constants as in advexp.settings
+    class BootConfig(
+        adv_config.Configuration,
+        options=env.env_source(),
+    ):
+        token: str = env.environment_variable_setting(name="BOOT_TOKEN")
+
+    try:
+        BootConfig.to_dict()
+    except adv_config.MemberLoadError as error:
+        print(f"no mode       -> {type(error).__name__}: {error}")
+    exported = BootConfig.to_dict(missing=adv_config.MISSING_NONE)
+    print(f"MISSING_NONE  = {dict(exported)}")
+    partial = BootConfig.to_dict(missing=adv_config.MISSING_SKIP)
+    print(f"MISSING_SKIP  = {dict(partial)}")
+
     section("inheritance: members compose, storage stays per class")
     ServiceConfig.load_configuration()  # loads the inherited members too
     print(f"Service    = mode={ServiceConfig.mode!r}, endpoint={ServiceConfig.endpoint!r}")
@@ -311,6 +370,44 @@ def main() -> None:
     section("plugin access")
     plugin = AppConfig.get_plugin(env.EnvironmentVariablesPlugin)
     print(f"plugin     = {plugin.plugin_name!r}, serves {plugin.context.settings_class.__name__}")
+
+    section("metadata: the channel of the declarations, layered at runtime")
+    # the metadata channel of the settings package, on the read-only class:
+    # the declarations open it (metadata= on the member, class_metadata on
+    # the class), the runtime methods work over them, and no load touches
+    # either side
+    print(f"metadata   = {AppConfig.get_setting_metadata('debug', 'ui-label')!r} (declared)")
+    print(f"all of it  = {AppConfig.get_setting_all_metadata('debug')!r}")
+    AppConfig.set_setting_metadata("debug", "ui-label", "Debug mode (overridden)")
+    print(f"metadata   = {AppConfig.get_setting_metadata('debug', 'ui-label')!r} (overridden)")
+    print(f"has label? = {AppConfig.contains_setting_metadata('debug', 'ui-label')}")
+    AppConfig.set_class_metadata("origin", "runtime")
+    print(f"class meta = {AppConfig.get_class_metadata('origin')!r} (overridden)")
+    # a reload changes the values alone: the metadata channel keeps its state
+    AppConfig.load_configuration()
+    print(
+        f"metadata   = {AppConfig.get_setting_metadata('debug', 'ui-label')!r} (survived the reload)"
+    )
+    # the member's whole bucket goes with one call, and the class storage
+    # clears the same way
+    AppConfig.delete_setting_all_metadata("debug")
+    print(f"all of it  = {AppConfig.get_setting_all_metadata('debug')!r} (after clear)")
+    AppConfig.delete_class_metadata("origin")
+    # a missing entry without default= raises, the dictionary rule; default=
+    # serves the fallback
+    try:
+        AppConfig.get_class_metadata("origin")
+    except KeyError as error:
+        print(f"no origin  -> KeyError: {error}")
+    print(f"class meta = {AppConfig.get_class_metadata('origin', 'fallback')!r} (the default=)")
+    # the reset forms bring the declared state back: the runtime entries of
+    # this whole section are dropped, the deleted declarations return. The
+    # source chain is declared state too, so it survives every reset — the
+    # read-only class keeps reading its sources either way
+    AppConfig.reset_setting_all_metadata("debug")
+    AppConfig.reset_class_all_metadata()
+    print(f"all of it  = {AppConfig.get_setting_all_metadata('debug')!r} (after reset)")
+    print(f"class meta = {AppConfig.get_class_metadata('origin')!r} (after reset)")
 
     # cleanup: the package never wrote any of these — the sample did
     JSON_FILE.unlink(missing_ok=True)

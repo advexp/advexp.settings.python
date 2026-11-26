@@ -42,17 +42,19 @@ from typing import (
 from advexp.settings_base.getter import SettingRef, resolve_setting_name
 from advexp.settings_base.library_configuration import (
     FAMILY_ENTRY_SEPARATOR,
+    RESERVED_KEY_PREFIX,
     LibraryConfiguration,
     family_entry_key,
     logger_for,
+    member_term,
 )
 from advexp.settings_base.names import (
     get_dynamic_setting_full_name,
     get_dynamic_setting_name,
 )
+from advexp.settings_base.no_default import NO_DEFAULT
+from advexp.settings_base.plugin_interface import IPlugin, PluginT
 from advexp.settings_base.setting_member import resolve_member
-from advexp.settings_base.settings_base_plugin import PluginT
-from advexp.settings_base.settings_plugin_interface import ISettingsPlugin
 from advexp.settings_base.settings_serializer_interface import ISettingsSerializer
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids an import cycle
@@ -157,6 +159,20 @@ def _check_family_entry_addressee(settings_class: "SettingsMeta", metadata_name:
     )
 
 
+def _is_service_metadata_key(metadata_name: str) -> bool:
+    """Return whether the key is one of the machinery's own spellings.
+
+    The machinery keeps its service records in the class metadata storage under
+    two spellings: the reserved keys that start with the reserved prefix
+    (``__ADVEXP_SETTINGS_BASE_``), and the per-class composite keys of
+    registered families. Both stay addressable by their exact names; the
+    listings hide them, so a reader sees the open channel alone.
+    """
+    return metadata_name.startswith(RESERVED_KEY_PREFIX) or (
+        LibraryConfiguration._family_key_of_entry(metadata_name) is not None
+    )
+
+
 def _declared_settings_metadata(settings_class: SettingsMeta) -> Dict[str, Dict[str, Any]]:
     """The member metadata with which the own storage of this class starts.
 
@@ -218,7 +234,14 @@ class SettingsContext:
         self._settings_metadata: Dict[str, Dict[str, Any]] = _declared_settings_metadata(
             settings_class
         )
-        self._plugins: Dict[type, ISettingsPlugin] = {}
+        # the declared state of both storages, as of the end of the class
+        # statement: the reset methods rewrite the own entries from these
+        # snapshots, so the state they restore is the one the class really
+        # started from — later changes to the declared mappings never
+        # reach a reset
+        self._class_metadata_seed = copy.deepcopy(self._class_metadata)
+        self._settings_metadata_seed = copy.deepcopy(self._settings_metadata)
+        self._plugins: Dict[type, IPlugin] = {}
         # keyed by a backend's anchor key (its family metadata key) ->
         # (configured spelling, anchored absolute path): the file addresses
         # this class has resolved; a changed spelling reanchors on read
@@ -321,7 +344,7 @@ class SettingsContext:
         _check_class_metadata(self._settings_class, metadata_name, metadata_value)
         self._class_metadata[metadata_name] = copy.deepcopy(metadata_value)
 
-    def get_class_metadata(self, metadata_name: str, default: Any = None) -> Any:
+    def get_class_metadata(self, metadata_name: str, default: Any = NO_DEFAULT) -> Any:
         """Read a class-level metadata entry; the nearest entry wins.
 
         The rule is the same as for class attribute lookup: the own storage of this
@@ -329,30 +352,51 @@ class SettingsContext:
         each key. Declarations and runtime writes are resolved alike, and live. A
         flat key of a family reads the nearest entry, which is the one that governs
         the own members of this class.
+
+        A missing entry with no ``default`` raises ``KeyError``, the way a plain
+        dictionary lookup does; ``default`` serves the fallback instead. A stored
+        ``None`` is a value like any other and is served as it is.
         """
         merged = self._chain_metadata()
         if LibraryConfiguration._is_family_metadata_key(metadata_name):
+            found = False
             for klass in inspect.getmro(self._settings_class):
                 key = family_entry_key(metadata_name, klass)
                 if key in merged:
                     return copy.deepcopy(merged[key])
-            return default
-        if metadata_name not in merged:
+        else:
+            found = metadata_name in merged
+        if not found:
+            if default is NO_DEFAULT:
+                available = ", ".join(sorted(self.get_class_all_metadata())) or "none"
+                raise KeyError(
+                    f"'{metadata_name}' is not a class metadata entry of "
+                    f"{self._settings_class.__name__}; available metadata: "
+                    f"{available}; pass default= to serve a fallback"
+                )
             return default
         return copy.deepcopy(merged[metadata_name])
 
     def get_class_all_metadata(self) -> Dict[str, Any]:
-        """Return every class-level metadata entry, keyed by metadata name.
+        """Return the class-level metadata entries of the open channel, keyed by
+        metadata name.
 
         This is the enumeration that the single-key getter cannot give: the entries
         that are visible to the class (its own entries and those of the chain) in
         one dict of deep copies. Changing the snapshot never affects the stored
-        metadata. The per-class entries of a family keep their distinct composite
-        keys, so the snapshot of a subclass lists its own entry next to the entry of
-        the base. A class with nothing stored anywhere in its chain returns an empty
-        dict.
+        metadata. The listing carries the open channel alone: the service records
+        of the machinery — the keys of the reserved ``__ADVEXP_SETTINGS_BASE_``
+        prefix and the per-class entries of registered families — stay in the
+        storage and remain addressable by their exact names, but the listing
+        hides them, so the keys a reader sees are the ones that applications
+        write. A class with nothing stored anywhere in its chain returns an
+        empty dict.
         """
-        return copy.deepcopy(self._chain_metadata())
+        merged = self._chain_metadata()
+        open_entries = {
+            key: value for key, value in merged.items() if not _is_service_metadata_key(key)
+        }
+        return copy.deepcopy(open_entries)
 
     def contains_class_metadata(self, metadata_name: str) -> bool:
         """Return whether the chain holds the name, counting the nearest own entry.
@@ -400,6 +444,23 @@ class SettingsContext:
         removed with the rest.
         """
         self._class_metadata.clear()
+
+    def reset_class_all_metadata(self) -> None:
+        """Restore the class-level metadata to the declared state of this class.
+
+        The storage returns to the state of the end of the ``class`` statement:
+        entries added at runtime are dropped, and declared entries that were
+        deleted or overridden at runtime come back. The service records that the
+        machinery seeded with the declaration (the file bindings, the source
+        chain of a configuration class) are part of the declared state, and they
+        return with the rest — a clear that took them is undone. The restored
+        state is the snapshot taken when the class was created, so a later
+        change to the declared mapping never reaches the reset. The own storage
+        of this class alone is rewritten; the entries of the base classes never
+        change.
+        """
+        self._class_metadata.clear()
+        self._class_metadata.update(copy.deepcopy(self._class_metadata_seed))
 
     # -- file anchors --------------------------------------------------------
 
@@ -531,13 +592,17 @@ class SettingsContext:
         bucket[metadata_name] = copy.deepcopy(metadata_value)
 
     def get_setting_metadata(
-        self, setting_name: SettingRef, metadata_name: str, default: Any = None
+        self, setting_name: SettingRef, metadata_name: str, default: Any = NO_DEFAULT
     ) -> Any:
         """Read one metadata entry of a setting; the nearest entry wins.
 
         The ChainMap rule applies along the chain of the member (from this class
         down to the declaring class): the most derived entry that holds the key
         wins, whichever side declared or wrote it.
+
+        A missing entry with no ``default`` raises ``KeyError``, the way a plain
+        dictionary lookup does; ``default`` serves the fallback instead. A stored
+        ``None`` is a value like any other and is served as it is.
         """
         name, declaring = self._declared_member(setting_name)
         for klass in self._member_chain(declaring):
@@ -547,6 +612,14 @@ class SettingsContext:
             bucket = context._settings_metadata.get(name)
             if bucket is not None and metadata_name in bucket:
                 return copy.deepcopy(bucket[metadata_name])
+        if default is NO_DEFAULT:
+            available = ", ".join(sorted(self.get_setting_all_metadata(setting_name)))
+            raise KeyError(
+                f"'{metadata_name}' is not a metadata entry of the "
+                f"{member_term(self._settings_class)} '{name}' of "
+                f"{self._settings_class.__name__}; available metadata: "
+                f"{available or 'none'}; pass default= to serve a fallback"
+            )
         return default
 
     def get_setting_all_metadata(self, setting_name: SettingRef) -> Dict[str, Any]:
@@ -610,6 +683,51 @@ class SettingsContext:
         if not bucket:
             del self._settings_metadata[name]
         return True
+
+    def delete_setting_all_metadata(self, setting_name: SettingRef) -> None:
+        """Remove every own metadata entry of one member at once.
+
+        The per-entry form is :meth:`delete_setting_metadata`. Only the own
+        storage of this class is cleared for the member: entries that the
+        declaring class or another class of the chain holds stay visible. A
+        member with no own entries is not an error. Entries that were seeded
+        by the ``metadata=`` declaration of the member are removed with the
+        rest: the declaration seeds the storage only once, and the entries do
+        not come back.
+        """
+        name, _ = self._declared_member(setting_name)
+        self._settings_metadata.pop(name, None)
+
+    def reset_setting_all_metadata(self, setting_name: SettingRef) -> None:
+        """Restore the metadata of one member to the declared state of this class.
+
+        The ``metadata=`` declaration is the state the own storage of the class
+        started from: entries added at runtime are dropped, and declared entries
+        that were deleted or overridden at runtime come back. Only the own
+        storage of this class is rewritten: a member whose own bucket holds
+        nothing but runtime writes reads the declaration of its declarer again,
+        and the storages of the base classes never change. The restored state
+        is the snapshot taken when the class was created, so a later change to
+        the declared mapping never reaches the reset.
+        """
+        name, _ = self._declared_member(setting_name)
+        seeded = self._settings_metadata_seed.get(name)
+        if seeded is None:
+            self._settings_metadata.pop(name, None)
+        else:
+            self._settings_metadata[name] = copy.deepcopy(seeded)
+
+    def reset_all_settings_metadata(self) -> None:
+        """Restore the metadata of every member to the declared state of this
+        class.
+
+        The same restoration that :meth:`reset_setting_all_metadata` applies to
+        one member, applied to every bucket of the own member storage. The own
+        storage alone is rewritten; the entries of the base classes never
+        change.
+        """
+        self._settings_metadata.clear()
+        self._settings_metadata.update(copy.deepcopy(self._settings_metadata_seed))
 
     # -- dynamic names -----------------------------------------------------
 

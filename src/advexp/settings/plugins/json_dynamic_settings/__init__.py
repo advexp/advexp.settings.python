@@ -120,6 +120,7 @@ __all__ = [
     "JSONDynamicSettingsPlugin",
     "JSONSettingsConfiguration",
     "JSONSettingsPlugin",
+    "JSONSetting",
     "json_setting",
     "json_source",
 ]

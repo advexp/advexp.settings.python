@@ -22,9 +22,9 @@ through the internals of the library.
 
 import pytest
 
-from advexp.settings import Settings, non_storage_setting
+from advexp.settings import Settings, sourceless_setting
 from advexp.settings.plugin_api import NO_DEFAULT
-from advexp.settings.plugins.json_settings import json_setting
+from advexp.settings_base.json_setting import json_setting
 
 
 def test_bad_default_fails_the_class_statement():
@@ -92,11 +92,11 @@ def test_orphan_member_reference_fails_the_class_statement():
     """A bound must reference a member of the same class. An attribute object that
     no member of the class carries is refused, and the error names it.
     """
-    orphan = non_storage_setting(default=1)  # an attribute bound to no member
+    orphan = sourceless_setting(default=1)  # an attribute bound to no member
     with pytest.raises(TypeError) as info:
 
         class OrphanSettings(Settings):
-            value: int = non_storage_setting(default=2, ge=orphan)
+            value: int = sourceless_setting(default=2, ge=orphan)
 
     assert str(info.value) == (
         "OrphanSettings: the ge= of 'value' references an attribute that is not declared as a "

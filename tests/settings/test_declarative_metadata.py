@@ -7,14 +7,17 @@ from typing import Any, Dict, Optional
 import pytest
 
 from advexp.settings import LibraryConfiguration, Settings
-from advexp.settings._internal.non_storage_setting import non_storage_setting
 from advexp.settings.plugin_api import (
     NOT_FOUND,
     SettingsAttribute,
     SettingsBaseSerializer,
 )
-from advexp.settings.plugins.environment.variables import environment_variable_setting
-from advexp.settings.plugins.json_settings import json_setting
+from advexp.settings.plugins.environment.variables import env_source
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
+from advexp.settings_base.json_setting import json_setting
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX
+from advexp.settings_base.sourceless_setting import sourceless_setting
+from advexp.settings_base.sources import ENVIRONMENT_SOURCE_METADATA
 
 # ---------------------------------------------------------------------------
 # declared member and class metadata seed the runtime channel
@@ -24,11 +27,11 @@ from advexp.settings.plugins.json_settings import json_setting
 class SeededSettings(Settings):
     class_metadata = {"config-version": 2, "origin": "seed"}
 
-    mode: str = non_storage_setting(
+    mode: str = sourceless_setting(
         default="production", metadata={"ui-label": "Mode", "ui-order": 1}
     )
-    api_token: Optional[str] = non_storage_setting(default=None, metadata={"secret": True})
-    retries: int = non_storage_setting(default=3)
+    api_token: Optional[str] = sourceless_setting(default=None, metadata={"secret": True})
+    retries: int = sourceless_setting(default=3)
 
 
 def test_declared_member_metadata_is_readable():
@@ -42,7 +45,7 @@ def test_declared_member_metadata_is_readable():
 
 def test_declared_none_is_a_value_like_any_other():
     class NoneMarkedSettings(Settings):
-        flag: bool = non_storage_setting(default=False, metadata={"note": None})
+        flag: bool = sourceless_setting(default=False, metadata={"note": None})
 
     assert NoneMarkedSettings.contains_setting_metadata("flag", "note")
     assert NoneMarkedSettings.get_setting_metadata("flag", "note", "fallback") is None
@@ -51,7 +54,11 @@ def test_declared_none_is_a_value_like_any_other():
 def test_member_without_metadata_answers_empty():
     assert SeededSettings.get_setting_all_metadata("retries") == {}
     assert not SeededSettings.contains_setting_metadata("retries", "anything")
-    assert SeededSettings.get_setting_metadata("retries", "anything") is None
+    # the dictionary rule: no default= for a missing entry, KeyError answers
+    with pytest.raises(KeyError, match="not a metadata entry of the setting 'retries'"):
+        SeededSettings.get_setting_metadata("retries", "anything")
+    assert SeededSettings.get_setting_metadata("retries", "anything", "fallback") == "fallback"
+    assert SeededSettings.get_setting_metadata("retries", "anything", default=None) is None
 
 
 def test_declared_class_metadata_is_readable():
@@ -65,7 +72,7 @@ def test_declared_class_metadata_is_readable():
 
 def test_class_without_declaration_answers_empty():
     class BareSettings(Settings):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert BareSettings.get_class_all_metadata() == {}
 
@@ -80,7 +87,7 @@ def test_class_keyword_seeds_the_same_declared_channel():
         Settings,
         options={"origin": "keyword"},
     ):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert KeywordSettings.get_class_all_metadata() == {"origin": "keyword"}
     # a declared entry's lifecycle: the runtime delete does not bring it back
@@ -95,7 +102,7 @@ def test_class_keyword_entry_inherits_along_the_mro():
         Settings,
         options={"origin": "keyword"},
     ):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     class ChildSettings(BaseSettings):
         pass
@@ -109,7 +116,7 @@ def test_class_keyword_and_body_declaration_merge():
         options={"origin": "keyword"},
     ):
         class_metadata = {"config-version": 2}
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     # one channel, both spellings: the keyword's entry and the body's
     # free keys merge — the family key and the application's keys do not
@@ -128,7 +135,7 @@ def test_shared_name_fails_the_class_statement():
             options={"origin": "keyword"},
         ):
             class_metadata = {"origin": "body", "kept": True}
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 def test_shared_names_are_all_named_in_the_error():
@@ -141,7 +148,7 @@ def test_shared_names_are_all_named_in_the_error():
             options={"origin": 1, "another": 2},
         ):
             class_metadata = {"origin": "body", "another": "body"}
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +161,7 @@ def test_sequence_form_combines_entries():
         Settings,
         options=({"origin": "keyword"}, {"config-version": 2}),
     ):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert SequenceSettings.get_class_all_metadata() == {
         "origin": "keyword",
@@ -167,7 +174,7 @@ def test_sequence_form_accepts_a_list_too():
         Settings,
         options=[{"origin": "keyword"}, {"config-version": 2}],
     ):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert ListSettings.get_class_all_metadata() == {
         "origin": "keyword",
@@ -181,7 +188,7 @@ def test_empty_sequence_declares_nothing():
         options=(),
     ):
         class_metadata = {"config-version": 2}
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert EmptySequenceSettings.get_class_all_metadata() == {"config-version": 2}
 
@@ -192,7 +199,7 @@ def test_sequence_form_merges_with_the_body_declaration():
         options=({"origin": "keyword"}, {"window": {"x": 10}}),
     ):
         class_metadata = {"config-version": 2}
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert SequenceBodySettings.get_class_all_metadata() == {
         "origin": "keyword",
@@ -208,7 +215,7 @@ def test_name_shared_by_two_entries_fails_the_class_statement():
             Settings,
             options=({"origin": 1}, {"origin": 2}),
         ):
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 def test_all_names_shared_across_entries_are_named_in_the_error():
@@ -219,7 +226,7 @@ def test_all_names_shared_across_entries_are_named_in_the_error():
             Settings,
             options=({"origin": 1, "another": 1}, {"origin": 2}, {"another": 2}),
         ):
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 def test_name_shared_by_an_entry_and_the_body_fails_the_class_statement():
@@ -230,7 +237,7 @@ def test_name_shared_by_an_entry_and_the_body_fails_the_class_statement():
             options=({"origin": "keyword"},),
         ):
             class_metadata = {"origin": "body"}
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +248,7 @@ def test_name_shared_by_an_entry_and_the_body_fails_the_class_statement():
 def test_runtime_set_overrides_and_extends_the_declaration():
     class MutableSettings(Settings):
         class_metadata = {"config-version": 2, "origin": "seed"}
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
 
     MutableSettings.set_setting_metadata("mode", "ui-label", "Application mode")
     MutableSettings.set_setting_metadata("mode", "hint", "Runtime hint")
@@ -263,7 +270,7 @@ def test_runtime_set_overrides_and_extends_the_declaration():
 def test_runtime_delete_removes_a_declared_entry():
     class DeletableSettings(Settings):
         class_metadata = {"origin": "seed"}
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
 
     DeletableSettings.delete_setting_metadata("mode", "ui-label")
     assert not DeletableSettings.contains_setting_metadata("mode", "ui-label")
@@ -274,15 +281,211 @@ def test_runtime_delete_removes_a_declared_entry():
     assert DeletableSettings.get_class_all_metadata() == {}
 
 
+def test_delete_of_the_declaration_attribute_is_rejected():
+    class GuardedSettings(Settings):
+        class_metadata = {"origin": "seed"}
+        mode: str = sourceless_setting(default="x")
+
+    # the declaration attribute is the body's seed, not the runtime channel:
+    # the copies the readers see live in the context, so the del is refused
+    # with the channel methods named, and nothing changes
+    with pytest.raises(
+        TypeError,
+        match=r"delete_class_metadata\('name'\).*delete_class_all_metadata",
+    ):
+        del GuardedSettings.class_metadata
+    assert "class_metadata" in vars(GuardedSettings)
+    assert GuardedSettings.get_class_all_metadata() == {"origin": "seed"}
+
+
 def test_runtime_clear_takes_the_declarations_along():
     class ClearableSettings(Settings):
         class_metadata = {"origin": "seed"}
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     ClearableSettings.delete_class_all_metadata()
     assert ClearableSettings.get_class_all_metadata() == {}
     # the member side is untouched: the clear is the class-level storage's own
     assert ClearableSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+
+
+def test_runtime_delete_all_drops_the_whole_bucket():
+    class ClearableSettings(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
+
+    ClearableSettings.set_setting_metadata("mode", "hint", "Runtime hint")
+    result = ClearableSettings.delete_setting_all_metadata("mode")
+    assert result is None
+    assert ClearableSettings.get_setting_all_metadata("mode") == {}
+
+    # a bucket with nothing stored: not an error
+    ClearableSettings.delete_setting_all_metadata("mode")
+
+
+def test_member_delete_all_removes_only_the_own_entries():
+    class BaseSettings(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    class ChildSettings(BaseSettings):
+        pass
+
+    # the child's bucket holds nothing of its own: the delete is a no-op, and
+    # the base's declaration stays visible
+    ChildSettings.delete_setting_all_metadata("mode")
+    assert ChildSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+
+    # an own runtime entry: gone with the bucket, the base's takes over again
+    ChildSettings.set_setting_metadata("mode", "hint", "child hint")
+    ChildSettings.delete_setting_all_metadata("mode")
+    assert ChildSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+
+    # the declarer's own delete is the one that clears the entry everywhere
+    BaseSettings.delete_setting_all_metadata("mode")
+    assert BaseSettings.get_setting_all_metadata("mode") == {}
+    assert ChildSettings.get_setting_all_metadata("mode") == {}
+
+
+# ---------------------------------------------------------------------------
+# the listing carries the open channel alone
+# ---------------------------------------------------------------------------
+
+
+def test_service_records_stay_out_of_the_listing():
+    class LinkedSettings(
+        Settings,
+        options=env_source(name_prefix="LISTING_"),
+    ):
+        class_metadata = {"origin": "seed"}
+        mode: str = environment_variable_setting(default="x")
+
+    # no source seats and no naming dictionaries in the snapshot: the class
+    # sees the entries that applications write
+    assert LinkedSettings.get_class_all_metadata() == {"origin": "seed"}
+
+    # the service records stay in the storage, addressable by their flat
+    # names
+    assert LinkedSettings.contains_class_metadata(ENVIRONMENT_SOURCE_METADATA)
+
+
+def test_reserved_keys_vanish_from_the_listing():
+    class ReservedSettings(Settings):
+        flag: bool = sourceless_setting(default=False)
+
+    # the reserved prefix is the machinery's channel: the write lands, the
+    # listing hides it, the exact name still reads
+    ReservedSettings.set_class_metadata(f"{RESERVED_KEY_PREFIX}own", "value")
+    assert ReservedSettings.get_class_metadata(f"{RESERVED_KEY_PREFIX}own") == "value"
+    assert ReservedSettings.get_class_all_metadata() == {}
+
+
+def test_family_entries_of_a_registered_key_stay_out_of_the_listing():
+    LibraryConfiguration.register_class_metadata_validator(
+        "test-listing-family", lambda value: None
+    )
+    try:
+
+        class FamilySettings(Settings):
+            class_metadata = {"test-listing-family": 1}
+            flag: bool = sourceless_setting(default=False)
+
+        # the declaration lands under the per-class composite key: the flat
+        # spelling reads it, and the listing never shows the storage spelling
+        assert FamilySettings.get_class_metadata("test-listing-family") == 1
+        assert FamilySettings.get_class_all_metadata() == {}
+    finally:
+        LibraryConfiguration._class_metadata_validators.pop("test-listing-family", None)
+
+
+# ---------------------------------------------------------------------------
+# the reset forms restore the declared state
+# ---------------------------------------------------------------------------
+
+
+def test_reset_setting_all_metadata_restores_the_declaration():
+    class ResettableSettings(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
+
+    ResettableSettings.delete_setting_metadata("mode", "ui-label")  # a declared entry gone
+    ResettableSettings.set_setting_metadata("mode", "ui-label", "Overridden")
+    ResettableSettings.set_setting_metadata("mode", "hint", "Runtime hint")
+
+    ResettableSettings.reset_setting_all_metadata("mode")
+
+    # the runtime key is dropped; the declared entries are back, override gone
+    assert ResettableSettings.get_setting_all_metadata("mode") == {
+        "ui-label": "Mode",
+        "ui-order": 1,
+    }
+
+
+def test_reset_of_an_inherited_member_reads_the_base_again():
+    class BaseSettings(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    class ChildSettings(BaseSettings):
+        pass
+
+    ChildSettings.set_setting_metadata("mode", "ui-label", "Child mode")
+    ChildSettings.reset_setting_all_metadata("mode")
+    # the child's own bucket held nothing but the runtime write: the base's
+    # declaration takes over again, and the base itself never changed
+    assert ChildSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+    assert BaseSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+
+
+def test_reset_all_settings_metadata_restores_every_bucket():
+    class BulkSettings(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+        retries: int = sourceless_setting(default=3)
+
+    BulkSettings.set_setting_metadata("mode", "hint", "Runtime hint")
+    BulkSettings.set_setting_metadata("retries", "ui-label", "Retry count")
+    BulkSettings.delete_setting_metadata("mode", "ui-label")
+
+    BulkSettings.reset_all_settings_metadata()
+
+    assert BulkSettings.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+    assert BulkSettings.get_setting_all_metadata("retries") == {}
+
+
+def test_reset_class_all_metadata_restores_the_declaration():
+    class ResettableSettings(Settings):
+        class_metadata = {"config-version": 2, "origin": "seed"}
+
+    ResettableSettings.delete_class_metadata("origin")  # a declared entry gone
+    ResettableSettings.set_class_metadata("origin", "Overridden")
+    ResettableSettings.set_class_metadata("runtime-key", 1)
+
+    ResettableSettings.reset_class_all_metadata()
+
+    assert ResettableSettings.get_class_all_metadata() == {
+        "config-version": 2,
+        "origin": "seed",
+    }
+
+
+def test_reset_restores_the_snapshot_not_the_later_body_state():
+    declared = {"origin": "seed"}
+
+    class SnapshotSettings(Settings):
+        class_metadata = declared
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    # the declared mapping mutated after the class statement: the reset
+    # restores the state of the class statement, not the later mutation
+    declared["origin"] = "MUTATED"
+    declared["extra"] = 1
+
+    SnapshotSettings.reset_class_all_metadata()
+    assert SnapshotSettings.get_class_all_metadata() == {"origin": "seed"}
+
+
+def test_reset_of_an_undeclared_name_is_refused():
+    class CheckedSettings(Settings):
+        mode: str = sourceless_setting(default="x")
+
+    with pytest.raises(KeyError):
+        CheckedSettings.reset_setting_all_metadata("nope")
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +495,7 @@ def test_runtime_clear_takes_the_declarations_along():
 
 def test_member_metadata_follows_the_member_by_mro():
     class BaseSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     class ChildSettings(BaseSettings):
         pass
@@ -311,10 +514,10 @@ def test_member_metadata_follows_the_member_by_mro():
 
 def test_member_redeclaration_replaces_metadata_wholesale():
     class BaseSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode", "ui-order": 1})
 
     class ChildSettings(BaseSettings):
-        mode: str = non_storage_setting(default="dev", metadata={"ui-label": "Child mode"})
+        mode: str = sourceless_setting(default="dev", metadata={"ui-label": "Child mode"})
 
     # no per-key merge: the redeclaration's metadata is the whole state
     assert ChildSettings.get_setting_all_metadata("mode") == {"ui-label": "Child mode"}
@@ -334,10 +537,10 @@ def test_member_redeclaration_replaces_metadata_wholesale():
 
 def test_member_runtime_write_on_the_base_reaches_the_subclasses():
     class BaseSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     class ChildSettings(BaseSettings):
-        other: bool = non_storage_setting(default=False)
+        other: bool = sourceless_setting(default=False)
 
     BaseSettings.set_setting_metadata("mode", "ui-label", "Runtime mode")
     BaseSettings.set_setting_metadata("mode", "hint", "Runtime hint")
@@ -358,7 +561,7 @@ def test_member_runtime_write_on_the_base_reaches_the_subclasses():
 
 def test_member_runtime_write_on_a_subclass_stays_local():
     class BaseSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     class ChildSettings(BaseSettings):
         pass
@@ -370,7 +573,7 @@ def test_member_runtime_write_on_a_subclass_stays_local():
 
 def test_member_delete_removes_only_the_own_entry_and_answers():
     class BaseSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     class ChildSettings(BaseSettings):
         pass
@@ -386,8 +589,10 @@ def test_member_delete_removes_only_the_own_entry_and_answers():
 
     # the declarer's own delete is the one that removes the entry everywhere
     assert BaseSettings.delete_setting_metadata("mode", "ui-label") is True
-    assert BaseSettings.get_setting_metadata("mode", "ui-label") is None
-    assert ChildSettings.get_setting_metadata("mode", "ui-label") is None
+    with pytest.raises(KeyError):
+        BaseSettings.get_setting_metadata("mode", "ui-label")
+    with pytest.raises(KeyError):
+        ChildSettings.get_setting_metadata("mode", "ui-label")
 
 
 def test_class_delete_answers_whether_an_own_entry_went():
@@ -406,7 +611,8 @@ def test_class_delete_answers_whether_an_own_entry_went():
     assert ChildSettings.get_class_metadata("origin") == "base"
 
     assert BaseSettings.delete_class_metadata("origin") is True
-    assert BaseSettings.get_class_metadata("origin") is None
+    with pytest.raises(KeyError):
+        BaseSettings.get_class_metadata("origin")
 
 
 def test_member_chain_stops_at_the_redeclaring_class():
@@ -414,17 +620,18 @@ def test_member_chain_stops_at_the_redeclaring_class():
     # redeclarer hold a different declaration of the same name, and it
     # never leaks down
     class GrandSettings(Settings):
-        mode: str = non_storage_setting(default="g", metadata={"ui-label": "Grand"})
+        mode: str = sourceless_setting(default="g", metadata={"ui-label": "Grand"})
 
     class MiddleSettings(GrandSettings):
-        mode: str = non_storage_setting(default="m", metadata={"ui-label": "Middle"})
+        mode: str = sourceless_setting(default="m", metadata={"ui-label": "Middle"})
 
     class LeafSettings(MiddleSettings):
         pass
 
     assert LeafSettings.get_setting_all_metadata("mode") == {"ui-label": "Middle"}
     GrandSettings.set_setting_metadata("mode", "hint", "grand hint")
-    assert LeafSettings.get_setting_metadata("mode", "hint") is None
+    with pytest.raises(KeyError, match="'hint' is not a metadata entry"):
+        LeafSettings.get_setting_metadata("mode", "hint")
     assert GrandSettings.get_setting_metadata("mode", "hint") == "grand hint"
 
 
@@ -461,7 +668,7 @@ def test_subclass_without_own_declaration_inherits_the_base_one():
         class_metadata = {"origin": "base"}
 
     class ChildSettings(BaseSettings):
-        other: bool = non_storage_setting(default=False)
+        other: bool = sourceless_setting(default=False)
 
     assert ChildSettings.get_class_all_metadata() == {"origin": "base"}
     ChildSettings.set_class_metadata("extra", 1)
@@ -477,7 +684,7 @@ def test_subclass_without_own_declaration_inherits_the_base_one():
 def test_runtime_write_on_the_base_reaches_the_subclasses():
     class BaseSettings(Settings):
         class_metadata = {"origin": "base"}
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     class ChildSettings(BaseSettings):
         pass
@@ -493,7 +700,7 @@ def test_runtime_write_on_the_base_reaches_the_subclasses():
 def test_subclass_created_after_a_runtime_write_sees_it():
     class BaseSettings(Settings):
         class_metadata = {"origin": "base"}
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     BaseSettings.set_class_metadata("origin", "runtime")
 
@@ -533,8 +740,10 @@ def test_subclass_delete_removes_only_the_own_entry():
 
     # the base's own delete is the one that removes the entry everywhere below
     BaseSettings.delete_class_metadata("origin")
-    assert BaseSettings.get_class_metadata("origin") is None
-    assert ChildSettings.get_class_metadata("origin") is None
+    with pytest.raises(KeyError):
+        BaseSettings.get_class_metadata("origin")
+    with pytest.raises(KeyError):
+        ChildSettings.get_class_metadata("origin")
 
 
 def test_clear_takes_only_the_own_entries_along():
@@ -557,7 +766,7 @@ def test_plain_base_class_contributes_its_declaration():
         class_metadata = {"origin": "mixin"}
 
     class MixedSettings(Mixin, Settings):
-        flag: bool = non_storage_setting(default=False)
+        flag: bool = sourceless_setting(default=False)
 
     assert MixedSettings.get_class_all_metadata() == {"origin": "mixin"}
 
@@ -573,7 +782,7 @@ def test_declaration_mutation_after_class_creation_stays_out():
 
     class IsolatedSettings(Settings):
         class_metadata = declared_class
-        mode: str = non_storage_setting(default="x", metadata=declared_member)
+        mode: str = sourceless_setting(default="x", metadata=declared_member)
 
     # a subclass created before any mutation reads the same declaration
     class SiblingSettings(IsolatedSettings):
@@ -602,7 +811,7 @@ def test_declaration_mutation_after_class_creation_stays_out():
 
 def test_getters_return_copies():
     class SnapshotSettings(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     snapshot = SnapshotSettings.get_setting_all_metadata("mode")
     snapshot["ui-label"] = "MUTATED"
@@ -628,8 +837,8 @@ def test_attribute_metadata_property_serves_isolated_copies():
 
 @pytest.mark.parametrize(
     "factory",
-    [non_storage_setting, json_setting, environment_variable_setting],
-    ids=["non_storage_setting", "json_setting", "environment_variable_setting"],
+    [sourceless_setting, json_setting, environment_variable_setting],
+    ids=["sourceless_setting", "json_setting", "environment_variable_setting"],
 )
 def test_factories_pass_metadata_through(factory):
     assert factory(default=1, metadata={"ui-label": "Label"}).metadata == {"ui-label": "Label"}
@@ -637,8 +846,8 @@ def test_factories_pass_metadata_through(factory):
 
 
 def test_attribute_class_construction_passes_metadata_through():
-    from advexp.settings.plugins.environment.variables import EnvironmentVariableSetting
-    from advexp.settings.plugins.json_settings import JSONSetting
+    from advexp.settings_base.environment_variable_setting import EnvironmentVariableSetting
+    from advexp.settings_base.json_setting import JSONSetting
 
     assert JSONSetting(default=1, path="/net", metadata={"m": 1}).metadata == {"m": 1}
     assert EnvironmentVariableSetting(default=1, metadata={"m": 1}).metadata == {"m": 1}
@@ -651,7 +860,7 @@ def test_attribute_class_construction_passes_metadata_through():
 
 def test_non_mapping_metadata_rejected_at_construction():
     with pytest.raises(TypeError, match="metadata must be a mapping"):
-        non_storage_setting(default=1, metadata=[("ui-label", "Label")])
+        sourceless_setting(default=1, metadata=[("ui-label", "Label")])
     with pytest.raises(TypeError, match="metadata must be a mapping"):
         json_setting(default=1, metadata="ui-label")
 
@@ -677,7 +886,7 @@ def test_non_mapping_options_rejected_at_class_creation():
             options="origin",
         ):
             class_metadata = {"config-version": 2}
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 def test_non_mapping_sequence_entry_rejected_at_class_creation():
@@ -689,7 +898,7 @@ def test_non_mapping_sequence_entry_rejected_at_class_creation():
             Settings,
             options=(("origin", "seed"),),
         ):
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -714,11 +923,11 @@ def test_registered_validator_checks_declaration_and_runtime():
 
             class Broken(Settings):
                 class_metadata = {"test-declarative-family": "bad"}
-                flag: bool = non_storage_setting(default=False)
+                flag: bool = sourceless_setting(default=False)
 
         class Fine(Settings):
             class_metadata = {"test-declarative-family": "ok"}
-            flag: bool = non_storage_setting(default=False)
+            flag: bool = sourceless_setting(default=False)
 
         assert Fine.get_class_metadata("test-declarative-family") == "ok"
 
@@ -776,7 +985,7 @@ def test_serializer_reads_declared_metadata_through_the_context():
 
         def save(self, setting_name, attr, value):
             member = attr.bound_name
-            if self.context.get_setting_metadata(member, "redact-on-save"):
+            if self.context.get_setting_metadata(member, "redact-on-save", default=None):
                 value = "***"
             storage[setting_name] = value
 
@@ -807,4 +1016,4 @@ def test_serializer_reads_declared_metadata_through_the_context():
         SecretSettings.save_settings()
         assert storage[full_plain] == "***"
     finally:
-        LibraryConfiguration._attribute_serializers.pop(RedactingAttribute, None)
+        LibraryConfiguration._attribute_serializers.pop((None, RedactingAttribute), None)

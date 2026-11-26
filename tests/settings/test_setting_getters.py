@@ -8,7 +8,7 @@ import os
 import pytest
 
 from advexp.settings import Settings
-from advexp.settings.plugins.environment.variables import environment_variable_setting
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 
 _ENV_NAMES = ("TEST_GETTER_HOST", "TEST_GETTER_PORT")
 

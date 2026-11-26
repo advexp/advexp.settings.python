@@ -17,11 +17,12 @@ because it is a bug in the code of the hook, not a property of the values.
 
 from configuration_validation_storage_paths import STORAGE_DIR
 
-from advexp.configuration import REQUIRED, Configuration, constant_setting
+from advexp.configuration import REQUIRED, Configuration, sourceless_setting
 from advexp.configuration.plugins.environment.variables import (
     env_source,
 )
-from advexp.configuration.plugins.json_settings import json_setting, json_source
+from advexp.configuration.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 HOOK_UNSETTLED_JSON_FILE = STORAGE_DIR / "hook-unsettled.json"
 HOOK_FATAL_JSON_FILE = STORAGE_DIR / "hook-fatal.json"
@@ -68,7 +69,7 @@ class HookBadReturnConfiguration(
     refuses the return value.
     """
 
-    value: int = constant_setting(default=1)
+    value: int = sourceless_setting(default=1)
 
     # no return annotation on purpose: this hook exists to break the
     # contract, and an honest "-> dict" would be a lie the checkers flag
@@ -85,7 +86,7 @@ class HookExplodingConfiguration(
     it is.
     """
 
-    mode: str = constant_setting(default="dev")
+    mode: str = sourceless_setting(default="dev")
 
     def __validate__(self) -> dict:
         raise ZeroDivisionError("hook bug")
@@ -99,7 +100,7 @@ class HookUnreadMemberConfiguration(
     miss of the member, next to the read error that the hook met.
     """
 
-    mode: str = constant_setting(default="dev")
+    mode: str = sourceless_setting(default="dev")
     missing: int
 
     def __validate__(self) -> dict:

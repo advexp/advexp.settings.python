@@ -14,33 +14,34 @@ distribution rejects it.
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Union
 
 from advexp.configuration.plugin_api import PACKAGE_NAME
-from advexp.configuration.plugins.yaml_settings.setting import YAMLSetting
+from advexp.configuration.plugins.yaml_settings.serializer import YAMLSettingsSerializer
 from advexp.settings_base.dynamic_document import (
     YAML_DYNAMIC_GROUP_METADATA,
     check_dynamic_settings_group,
 )
-from advexp.settings_base.env_parameter import (
-    EnvParameter,
-)
-from advexp.settings_base.env_parameter import (
-    link_parameters as _link_parameters,
-)
 from advexp.settings_base.pointer import pointer_steps
+from advexp.settings_base.settings_profile import (
+    SettingsProfile,
+)
+from advexp.settings_base.settings_profile import (
+    link_settings_profile as _link_settings_profile,
+)
 from advexp.settings_base.source_binding import SourceBinding
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     LINK_NAME_PATTERN_PARAM,
-    LINK_PARAMETERS_PARAM,
     LINK_PATH_PARAM,
+    LINK_SETTINGS_PROFILE_PARAM,
 )
 from advexp.settings_base.yaml_file import (
     YAML_DYNAMIC_FILE_METADATA,
     check_yaml_file,
 )
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 def yaml_source(
@@ -49,7 +50,7 @@ def yaml_source(
     name_pattern: Optional[str] = None,
     dynamic_file: Optional[Union[str, os.PathLike]] = None,
     dynamic_of: Optional[str] = None,
-    parameters: Union[EnvParameter, Sequence[EnvParameter], None] = None,
+    settings_profile: Optional[SettingsProfile] = None,
 ) -> SourceBinding:
     """Declare a YAML file link, in the form used by this distribution.
 
@@ -67,7 +68,7 @@ def yaml_source(
     ``file`` names the file that the link reads. The extension is not checked:
     any path works. The name may contain template slots that are resolved
     through environment variables:
-    ``yaml_source(file="settings-{APP_ENV}.yaml", parameters=app_env)`` reads
+    ``yaml_source(file="settings-{APP_ENV}.yaml", settings_profile=profile)`` reads
     the file of the environment that ``APP_ENV`` names. The parameters are
     declared once next to the chain and are shared by every templated link.
 
@@ -111,7 +112,7 @@ def yaml_source(
     templates: tuple = (os.fspath(file),)
     if dynamic_file is not None:
         templates = (os.fspath(file), os.fspath(dynamic_file))
-    spelled = _link_parameters(parameters, templates, "yaml_source")
+    spelled = _link_settings_profile(settings_profile, templates, "yaml_source")
     extras: Mapping[str, Any] = {}
     if dynamic_file is not None or dynamic_of is not None:
         extras = {
@@ -125,11 +126,12 @@ def yaml_source(
     return SourceBinding(
         link=SourceLink(
             attribute_class=YAMLSetting,
+            serializer_class=YAMLSettingsSerializer,
             params={
                 LINK_FILE_PARAM: file,
                 LINK_PATH_PARAM: path,
                 LINK_NAME_PATTERN_PARAM: name_pattern,
-                LINK_PARAMETERS_PARAM: spelled,
+                LINK_SETTINGS_PROFILE_PARAM: spelled,
             },
         ),
         extras=extras or None,

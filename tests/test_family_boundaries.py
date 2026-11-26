@@ -43,9 +43,17 @@ from advexp.settings_base.sources import ENVIRONMENT_SOURCE_METADATA
 
 
 def test_settings_attribute_in_configuration_class_fails():
-    # the regression of the silent mix: a configuration member declared
-    # with the settings package's attribute used to fall back to defaults
-    # instead of aborting the load
+    # the boundary still guards the attribute bases of the distributions —
+    # what the plugin authors derive their backends from. The member
+    # factories of the families are shared on purpose: one spelling serves
+    # the classes of both distributions, and the class's own sources decide
+    # where it reads
+    class SettingsBackendAttribute(adv_settings.plugin_api.SettingsAttribute):
+        pass
+
+    def settings_backend_setting(**kwargs):
+        return SettingsBackendAttribute(**kwargs)
+
     with pytest.raises(
         TypeError,
         match="BadConfig.session_ttl is an advexp.settings attribute "
@@ -53,10 +61,16 @@ def test_settings_attribute_in_configuration_class_fails():
     ):
 
         class BadConfig(adv_config.Configuration):
-            session_ttl: timedelta = sjs.json_setting()
+            session_ttl: timedelta = settings_backend_setting(default=10)
 
 
 def test_configuration_attribute_in_settings_class_fails():
+    class ConfigurationBackendAttribute(adv_config.plugin_api.ConfigurationAttribute):
+        pass
+
+    def configuration_backend_setting(**kwargs):
+        return ConfigurationBackendAttribute(**kwargs)
+
     with pytest.raises(
         TypeError,
         match="BadSettings.session_ttl is an advexp.configuration attribute "
@@ -64,7 +78,27 @@ def test_configuration_attribute_in_settings_class_fails():
     ):
 
         class BadSettings(adv_settings.Settings):
-            session_ttl: timedelta = cjs.json_setting()
+            session_ttl: timedelta = configuration_backend_setting(default=10)
+
+
+def test_shared_factories_cross_the_distributions():
+    # the member factories of the families are family-wide: the same
+    # function declares a member of a settings class and of a configuration
+    # class alike, and each class reads it through its own sources
+    class CrossSettings(
+        adv_settings.Settings,
+        options=sjs.json_source(file="cross.json"),
+    ):
+        session_ttl: timedelta = cjs.json_setting(default=10)
+
+    class CrossConfig(
+        adv_config.Configuration,
+        options=cjs.json_source(file="cross.json"),
+    ):
+        session_ttl: timedelta = sjs.json_setting(default=10)
+
+    assert CrossSettings.__settings_members__["session_ttl"] is not None
+    assert CrossConfig.__settings_members__["session_ttl"] is not None
 
 
 def test_own_attributes_create_cleanly():

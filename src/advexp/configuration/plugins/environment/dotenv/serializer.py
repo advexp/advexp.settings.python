@@ -57,7 +57,6 @@ from advexp.configuration.plugin_api import (
     UserFacingError,
 )
 from advexp.settings_base.dotenv_file import DOTENV_FILE_METADATA
-from advexp.settings_base.env_parameter import EnvParameter, resolve_templated_path
 from advexp.settings_base.environment_lookup import environment_key
 from advexp.settings_base.environment_nested import (
     contains_nested_environment_value,
@@ -72,9 +71,10 @@ from advexp.settings_base.environment_options import (
 )
 from advexp.settings_base.names import setting_name_candidates, spelled_with_aliases
 from advexp.settings_base.setting_member import SettingMember
+from advexp.settings_base.settings_profile import SettingsProfile, resolve_templated_path
 from advexp.settings_base.source_link import SourceLink
 from advexp.settings_base.source_link_sink_interface import ISourceLinkSink
-from advexp.settings_base.sources import LINK_FILE_PARAM, LINK_PARAMETERS_PARAM
+from advexp.settings_base.sources import LINK_FILE_PARAM, LINK_SETTINGS_PROFILE_PARAM
 
 try:
     from advexp.settings_base.dotenv_parsing import parse_dotenv_variables
@@ -103,7 +103,7 @@ class DotenvSerializer(SettingsBaseSerializer, ISourceLinkSink):
         # of a subclass's reach
         self.__view: Optional[Mapping[str, str]] = None
         self.__file: Optional[Union[str, os.PathLike]] = None
-        self.__parameters: Optional[Tuple[EnvParameter, ...]] = None
+        self.__profile: Optional[Tuple[SettingsProfile, ...]] = None
 
     # -- ISourceLinkSink --------------------------------------------------------
 
@@ -111,12 +111,12 @@ class DotenvSerializer(SettingsBaseSerializer, ISourceLinkSink):
         """``ISourceLinkSink`` delivery: the link that this source reads.
 
         The ``file=`` of the link names the ``.env`` file. It may contain template
-        slots, which are resolved through the ``parameters=`` of the link. The
+        slots, which are resolved through the ``settings_profile=`` of the link. The
         naming options arrive in a different way: through the shared dictionary of
         the family.
         """
-        self.__file = link.param(LINK_FILE_PARAM)
-        self.__parameters = link.param(LINK_PARAMETERS_PARAM)
+        self.__file = link.param(LINK_FILE_PARAM, default=None)
+        self.__profile = link.param(LINK_SETTINGS_PROFILE_PARAM, default=None)
 
     # -- the file ------------------------------------------------------------
 
@@ -142,7 +142,7 @@ class DotenvSerializer(SettingsBaseSerializer, ISourceLinkSink):
         resolved = resolve_templated_path(
             self.context,
             configured,
-            self.__parameters,
+            self.__profile,
             f"the dotenv file source ({PACKAGE_NAME})",
         )
         return self.context.anchored_file_path((DOTENV_FILE_METADATA, resolved), resolved)

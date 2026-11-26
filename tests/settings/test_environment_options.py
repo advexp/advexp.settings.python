@@ -16,8 +16,9 @@ from advexp.settings.plugins.environment import (
     NESTED_DELIMITER,
     NameCase,
 )
-from advexp.settings.plugins.environment.variables import env_source, environment_variable_setting
+from advexp.settings.plugins.environment.variables import env_source
 from advexp.settings_base.environment_options import check_environment_options
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 from advexp.settings_base.sources import ENVIRONMENT_SOURCE_METADATA
 
 _ENV_NAMES = (
@@ -290,27 +291,39 @@ def test_subclass_delete_of_its_own_family_entry_falls_back_to_the_base(monkeypa
     assert ChildSettings.extra == "fallback"
 
 
-def test_chain_snapshot_lists_both_family_entries():
+def test_chain_snapshot_hides_the_family_entries_exact_names_still_read():
     class ChildSettings(
         PrefixedSettings,
         options=env_source(name_prefix="CHILD_"),
     ):
         pass
 
-    # the composite keys keep the base's entries and the subclass's apart
-    # in the merged snapshot, the source seats among them
-    snapshot = ChildSettings.get_class_all_metadata()
-    assert snapshot[family_entry_key(ENVIRONMENT_METADATA_OPTIONS, PrefixedSettings)] == {
-        NAME_PREFIX: "TEST_EO_",
-        NAME_CASE: "upper",
-        NESTED_DELIMITER: None,
-    }
-    assert snapshot[family_entry_key(ENVIRONMENT_METADATA_OPTIONS, ChildSettings)] == {
+    # the listing carries the open channel alone: the composite entries of
+    # the family and the source seats stay in the storage, hidden from it
+    assert ChildSettings.get_class_all_metadata() == {}
+
+    # the flat spelling resolves the nearest entry: the child's own
+    assert ChildSettings.get_class_metadata(ENVIRONMENT_METADATA_OPTIONS) == {
         NAME_PREFIX: "CHILD_",
         NAME_CASE: None,
         NESTED_DELIMITER: None,
     }
-    assert family_entry_key(ENVIRONMENT_SOURCE_METADATA, ChildSettings) in snapshot
+    # the base keeps its own entry, and the composite names read both
+    assert PrefixedSettings.get_class_metadata(ENVIRONMENT_METADATA_OPTIONS) == {
+        NAME_PREFIX: "TEST_EO_",
+        NAME_CASE: "upper",
+        NESTED_DELIMITER: None,
+    }
+    assert ChildSettings.get_class_metadata(
+        family_entry_key(ENVIRONMENT_METADATA_OPTIONS, PrefixedSettings)
+    ) == {
+        NAME_PREFIX: "TEST_EO_",
+        NAME_CASE: "upper",
+        NESTED_DELIMITER: None,
+    }
+    assert ChildSettings.contains_class_metadata(
+        family_entry_key(ENVIRONMENT_SOURCE_METADATA, ChildSettings)
+    )
 
 
 def test_the_builder_seats_the_link_beside_the_naming_dictionary():

@@ -16,7 +16,8 @@ from settings_validation_storage_paths import STORAGE_DIR
 
 from advexp.settings import Settings
 from advexp.settings.plugin_api import NO_DEFAULT
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 REGEX_CODE_JSON_FILE = STORAGE_DIR / "regex-code.json"
 NON_STRING_JSON_FILE = STORAGE_DIR / "regex-non-string.json"

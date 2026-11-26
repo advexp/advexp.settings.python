@@ -29,9 +29,6 @@ mypy_path = [
 ]
 namespace_packages = true
 explicit_package_bases = true
-# a personal scratch draft beside the both-packages sample tour: not part
-# of the checked sample set
-exclude = 'samples/both_packages/main_my\.py$'
 
 # tests type-check against the library, not against pytest's own code:
 # modern pytest uses syntax newer than the 3.9 target above, so its modules
@@ -50,6 +47,19 @@ ignore_missing_imports = true
 module = ["pytest", "_pytest.*"]
 follow_imports = "skip"
 
+# pydantic under the 3.9 target: the installed release declares
+# Requires-Python >= 3.10 and its source carries the newer syntax, so the
+# walk stops at the door and pydantic's API is Any in the plugin. On a 3.9
+# install pip resolves an older pydantic through the package's own
+# Requires-Python, and the plugin only touches the stable v2 surface
+# (model_dump, the secret wrappers, ValidationError). The CI type-check
+# job installs the dev extras alone, without the pydantic extra, so the
+# import is also allowed to be missing there
+[[tool.mypy.overrides]]
+module = ["pydantic", "pydantic.*", "pydantic_settings", "pydantic_settings.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 # tomllib (3.11+) is conditionally imported with a tomli fallback the test
 # environment does not install; the fallback path handles its absence
 [[tool.mypy.overrides]]
@@ -60,10 +70,8 @@ ignore_missing_imports = true
 line-length = 100
 # package catalogs hold their source as a symlink to the shared src/ tree;
 # the real files are already linted under src/ (a second walk through the
-# symlink would dodge the per-file-ignores keyed to the src/ spelling);
-# the personal scratch draft beside the both-packages sample tour is not
-# part of the checked sample set either
-extend-exclude = ["packages/*/src", "samples/both_packages/main_my.py"]
+# symlink would dodge the per-file-ignores keyed to the src/ spelling)
+extend-exclude = ["packages/*/src"]
 
 [tool.ruff.format]
 # `exclude` replaces the root list, so the symlink guard is repeated
@@ -72,7 +80,7 @@ extend-exclude = ["packages/*/src", "samples/both_packages/main_my.py"]
 # README), checked separately in CI and scripts/check.sh; the default
 # 100 would rewrap
 # them. Lint keeps checking them through the root config.
-exclude = ["packages/*/src", "*.md", "samples/both_packages/main_my.py"]
+exclude = ["packages/*/src", "*.md"]
 
 [tool.ruff.lint]
 # default ruff rule set + import sorting; pyupgrade (UP) is intentionally

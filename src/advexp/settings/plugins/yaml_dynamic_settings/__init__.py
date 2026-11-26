@@ -120,6 +120,7 @@ __all__ = [
     "YAMLDynamicSettingsPlugin",
     "YAMLSettingsConfiguration",
     "YAMLSettingsPlugin",
+    "YAMLSetting",
     "yaml_setting",
     "yaml_source",
 ]

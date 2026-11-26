@@ -30,10 +30,10 @@ from __future__ import annotations
 import collections.abc
 from typing import Any, Dict, Mapping, Optional
 
-from advexp.settings_base.library_configuration import LibraryConfiguration
+from advexp.settings_base.library_configuration import RESERVED_KEY_PREFIX, LibraryConfiguration
 from advexp.settings_base.name_case import NameCase
 
-ENVIRONMENT_METADATA_OPTIONS = "__EnvironmentMetadataOptions"
+ENVIRONMENT_METADATA_OPTIONS = f"{RESERVED_KEY_PREFIX}EnvironmentMetadataOptions"
 """The class metadata key of the family — one key for every backend reading
 or writing environment-style names. The options are declared once per
 settings class and a runtime change reaches the whole family at once."""

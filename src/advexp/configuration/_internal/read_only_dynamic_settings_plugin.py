@@ -7,7 +7,7 @@ A dynamic collection of this package reads a group of entries that a
 writing class of the settings distribution stored. The writer's group key
 names the group, and the file and section parameters place it. The
 collection offers only the reading half of the collection's interface.
-Everything that modifies the storage or the collection's metadata is
+Everything that modifies the storage or the collection's values is
 refused with a ``TypeError``, the same guard that this package applies to
 its members: this package loads, and never writes.
 """
@@ -42,9 +42,16 @@ class ReadOnlyDocumentDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
     explicitly: the class's load pass never touches the dynamic side).
     :meth:`get_setting` converts the value to the type of the default.
     :meth:`to_dict` returns a snapshot. Iteration follows the order in the
-    class metadata, like the writer's own collection. The writing half and the
-    metadata API are refused with a ``TypeError``, because the entries belong
-    to the writer, and the sources of this package are read-only.
+    class metadata, like the writer's own collection. The writing half is
+    refused with a ``TypeError``, because the entries belong to the writer,
+    and the sources of this package are read-only.
+
+    The metadata API works as it does for the writer's collection: the
+    entries carry the annotations of this collection's runtime alone, which
+    the writer's own metadata never reaches (its metadata is the state of
+    the writing process and is not stored). A name must be one that the
+    collection holds, and the next :meth:`load_configuration` clears the
+    annotations with the rebuild.
     """
 
     WRITER_GROUP_METADATA: ClassVar[str]
@@ -199,76 +206,4 @@ class ReadOnlyDocumentDynamicSettingsPlugin(DocumentDynamicSettingsPlugin):
         raise TypeError(
             "the read-only collection does not support loading a single entry. "
             "Call load_configuration(), which refreshes every entry of the group"
-        )
-
-    # -- refused: the metadata API ----------------------------------------------------
-
-    def set_setting_metadata(
-        self, setting_name: str, metadata_name: str, metadata_value: Any
-    ) -> None:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
-        )
-
-    def get_setting_metadata(
-        self, setting_name: str, metadata_name: str, default: Any = None
-    ) -> Any:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
-        )
-
-    def get_setting_all_metadata(self, setting_name: str) -> Any:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
-        )
-
-    def contains_setting_metadata(self, setting_name: str, metadata_name: str) -> bool:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
-        )
-
-    def delete_setting_metadata(self, setting_name: str, metadata_name: str) -> None:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
-        )
-
-    def delete_setting_all_metadata(self, setting_name: str) -> None:
-        """Refused with an error: a read-only collection carries no metadata.
-
-        The storage holds none (the writer's metadata is its runtime state and is
-        never stored), so the reader has nothing to restore it from.
-        """
-        raise TypeError(
-            f"the {self.plugin_name} collection has no setting metadata: "
-            "the storage holds none, and a reader never writes any"
         )

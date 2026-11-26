@@ -11,20 +11,27 @@ example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
 )
 from advexp.configuration.plugins.toml_settings.serializer import TOMLSettingsSerializer
-from advexp.configuration.plugins.toml_settings.setting import TOMLSetting
+from advexp.settings_base.toml_setting import TOMLSetting
 
 
 class TOMLSettingsPlugin(SettingsBasePlugin):
     """Plugin object for the TOML file source."""
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(TOMLSetting, TOMLSettingsSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        TOMLSetting,
+        TOMLSettingsSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:

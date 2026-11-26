@@ -15,8 +15,9 @@ from settings_validation_storage_paths import STORAGE_DIR
 
 from advexp.settings import REQUIRED, Settings
 from advexp.settings.plugin_api import NO_DEFAULT
-from advexp.settings.plugins.environment.variables import environment_variable_setting
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
+from advexp.settings_base.json_setting import json_setting
 
 SIX_COMPARISONS_JSON_FILE = STORAGE_DIR / "comparison-six.json"
 PORT_REQUIRED_JSON_FILE = STORAGE_DIR / "comparison-port.json"

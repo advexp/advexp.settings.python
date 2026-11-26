@@ -256,7 +256,9 @@ DynamicSettingAttribute`) is the
 
     def __ordered_names(self) -> List[str]:
         """Names in the effective order: metadata order first, then the rest."""
-        declared = self.context.get_class_metadata(self.ITERATION_ORDER_METADATA) or []
+        declared = (
+            self.context.get_class_metadata(self.ITERATION_ORDER_METADATA, default=None) or []
+        )
         ordered: List[str] = []
         listed = set()
         for name in declared:
@@ -513,12 +515,28 @@ DynamicSettingAttribute`) is the
             bucket[metadata_name] = copy.deepcopy(metadata_value)
 
     def get_setting_metadata(
-        self, setting_name: str, metadata_name: str, default: Any = None
+        self, setting_name: str, metadata_name: str, default: Any = NO_DEFAULT
     ) -> Any:
+        """Return one metadata entry of a dynamic setting.
+
+        A missing entry with no ``default`` raises ``KeyError`` — the same
+        rule that :meth:`get_setting` applies to a missing name and a plain
+        dictionary lookup to a missing key; ``default`` serves the fallback
+        instead. A stored ``None`` is a value like any other and is served as
+        it is. As with every metadata operation, the name must be one that the
+        collection holds. The value is deep-copied.
+        """
         with self.context.lock:
             self.__require_name(setting_name)
-            bucket = self.__metadata.get(setting_name)
-            if bucket is None or metadata_name not in bucket:
+            bucket = self.__metadata.get(setting_name, {})
+            if metadata_name not in bucket:
+                if default is NO_DEFAULT:
+                    available = ", ".join(sorted(bucket)) or "none"
+                    raise KeyError(
+                        f"'{metadata_name}' is not a metadata entry of the dynamic "
+                        f"setting '{setting_name}'; available metadata: {available}; "
+                        "pass default= to serve a fallback"
+                    )
                 return default
             return copy.deepcopy(bucket[metadata_name])
 

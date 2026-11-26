@@ -5,13 +5,19 @@ TOML file. The scenario breaks each source in its own way: a missing
 variable, a value that cannot be converted, and two empty files. The TOML
 source serves its member. A single run therefore shows the aggregate error
 carrying the wording of every source, next to a healthy load.
+
+The other scenario holds members of no family: they walk the whole chain of
+their class, and the miss that empties it names one storage address per line.
 """
 
 import pytest
 from configuration_multiple_sources_classes import (
+    CHAIN_DOTENV_FILE,
+    CHAIN_JSON_FILE,
     MULTI_DOTENV_FILE,
     MULTI_JSON_FILE,
     MULTI_TOML_FILE,
+    ChainMissConfiguration,
     MultiSourceConfiguration,
 )
 from configuration_storage_paths import prepare_storage_dir
@@ -69,3 +75,37 @@ def test_several_sources_report_each_in_its_own_words(monkeypatch):
     assert MultiSourceConfiguration.json_plain is None
     assert MultiSourceConfiguration.env_known == 7
     assert MultiSourceConfiguration.dotenv_extra == 5
+
+
+def test_a_miss_of_the_whole_chain_lists_one_address_per_line(monkeypatch):
+    """No link holds the value: the miss names every address, one per line."""
+    prepare_storage_dir()
+    monkeypatch.delenv("chain_token", raising=False)
+    # both files carry nothing: every link of the chain comes up empty
+    CHAIN_JSON_FILE.write_text("{}", encoding="utf-8")
+    CHAIN_DOTENV_FILE.write_text("", encoding="utf-8")
+
+    with pytest.raises(AggregateLoadError) as info:
+        ChainMissConfiguration.load_configuration()
+
+    # the required member's error names the chain as a whole and lists
+    # every storage address the pass walked empty, one per line
+    (error,) = info.value.errors
+    assert str(error) == (
+        "member 'token' of 'ChainMissConfiguration' is required: "
+        "no source of the chain provided a value\n"
+        "    - environment variable 'chain_token'\n"
+        f"    - environment variable 'chain_token' in the dotenv file {CHAIN_DOTENV_FILE}\n"
+        f"    - key 'chain_token' in the JSON file {CHAIN_JSON_FILE}"
+    )
+    # the optional member of the same walk rides the abort as a miss,
+    # in the same one-address-per-line spelling
+    (miss,) = info.value.misses
+    assert str(miss) == (
+        "member 'retries' of 'ChainMissConfiguration': "
+        "no source of the chain provided a value\n"
+        "    - environment variable 'chain_retries'\n"
+        f"    - environment variable 'chain_retries' in the dotenv file"
+        f" {CHAIN_DOTENV_FILE}\n"
+        f"    - key 'chain_retries' in the JSON file {CHAIN_JSON_FILE}"
+    )

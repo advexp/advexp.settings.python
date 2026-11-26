@@ -32,9 +32,11 @@ A bare annotation declares a required member. An annotated assignment
 declares a member with that value as its default. The rich spelling of the
 same member (with constraints or an explicit address) is
 :func:`advexp.settings.setting`. A member that belongs to a single backend
-is declared with the factory of that backend (``json_setting`` and the
-others). A member that no storage ever serves is declared with the
-``non_storage_setting`` factory of the core:
+is declared with the factory of that backend's package — ``json_setting``
+of the JSON plugin package, and the like; importing the package is what
+enables the backend, so the factory and the backend always arrive
+together. A member that no source or storage ever serves is declared with
+the ``sourceless_setting`` factory of the core:
 
 ```python
 from datetime import timedelta
@@ -42,9 +44,9 @@ from datetime import timedelta
 import advexp.settings as adv_settings
 
 class Limits(adv_settings.Settings):
-    timeout: timedelta = adv_settings.non_storage_setting(default="0:30:00")
+    timeout: timedelta = adv_settings.sourceless_setting(default="0:30:00")
 
-# datetime.timedelta(seconds=1800) — converted, kept in memory
+# datetime.timedelta(seconds=1800) — converted, no storage asked
 print(repr(Limits.timeout))
 ```
 
@@ -54,14 +56,14 @@ example, ``APP_ENV`` selects ``settings-dev.json`` or
 ``settings-prod.json``:
 
 ```python
-from advexp.settings import env_parameter
+from advexp.settings import settings_profile
 import advexp.settings.plugins.json_settings as js
 
-app_env = env_parameter("APP_ENV", choices=("dev", "test", "prod"))
+profile = settings_profile("APP_ENV", choices=("dev", "test", "prod"))
 
 class EnvSettings(
     adv_settings.Settings,
-    options=js.json_source(file="settings-{APP_ENV}.json", parameters=app_env),
+    options=js.json_source(file="settings-{APP_ENV}.json", settings_profile=profile),
 ):
     token: str
 ```
@@ -78,6 +80,9 @@ stable release.
 # keeps everyone else out of _internal)
 # noinspection PyProtectedMember
 from advexp.settings._internal.facade_sources import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    MISSING_SKIP,
     REQUIRED,
     AggregateLoadError,
     ConstraintViolationError,
@@ -88,37 +93,44 @@ from advexp.settings._internal.facade_sources import (
     PluginNotEnabledError,
     SecretBytes,
     SecretStr,
-    Setting,
+    SettingDeclarations,
+    SettingRef,
     Settings,
     SettingValidationError,
+    SourcelessSetting,
     SourceLoadError,
     __version__,
     declared_module_defaults,
-    env_parameter,
     for_this_module,
-    non_storage_setting,
     setting,
+    settings_profile,
+    sourceless_setting,
 )
 
 __all__ = [
     "REQUIRED",
     "AggregateLoadError",
+    "SourcelessSetting",
     "ConstraintViolationError",
     "ConversionError",
     "MemberLoadError",
     "MissingValueError",
+    "MISSING_NONE",
+    "MISSING_RAISE",
+    "MISSING_SKIP",
     "PluginNotEnabledError",
     "SecretBytes",
     "SecretStr",
-    "Setting",
+    "SettingDeclarations",
+    "SettingRef",
     "SettingValidationError",
     "Settings",
     "LibraryConfiguration",
     "SourceLoadError",
     "__version__",
     "declared_module_defaults",
-    "env_parameter",
+    "settings_profile",
     "for_this_module",
-    "non_storage_setting",
+    "sourceless_setting",
     "setting",
 ]

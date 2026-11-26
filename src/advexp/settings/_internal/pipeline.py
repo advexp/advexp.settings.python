@@ -298,6 +298,11 @@ def delete_settings(context: SettingsContext) -> None:
             notify_start(serializers, "delete")
             try:
                 for member in members.values():
+                    if getattr(type(member.attribute), "SOURCELESS", False):
+                        # no storage to delete from; the member itself still
+                        # returns to its declared value, the pass's rule
+                        _reset_member_value(settings_class, member)
+                        continue
                     for serializer in links.member_serializers(cache, member):
                         try:
                             _delete_member(settings_class, member, serializer)
@@ -349,6 +354,10 @@ def load_setting(context: SettingsContext, setting_name: str) -> Optional[Member
     settings_class = context.settings_class
     with context.lock:
         member = resolve_member(settings_class, setting_name)
+        if getattr(type(member.attribute), "SOURCELESS", False):
+            # the class pass's rule: the declared value alone, no source asked
+            _reset_member_value(settings_class, member)
+            return None
         cache = SerializerCache(context)
         links = LinkSerializers(context)
         serializer = links.member_serializers(cache, member)[0]
@@ -368,6 +377,8 @@ def save_setting(context: SettingsContext, setting_name: str) -> None:
     settings_class = context.settings_class
     with context.lock:
         member = resolve_member(settings_class, setting_name)
+        if getattr(type(member.attribute), "SOURCELESS", False):
+            return  # no storage to save to, the class pass's rule
         cache = SerializerCache(context)
         links = LinkSerializers(context)
         serializer = links.member_serializers(cache, member)[0]
@@ -399,6 +410,11 @@ def delete_setting(context: SettingsContext, setting_name: str) -> None:
     settings_class = context.settings_class
     with context.lock:
         member = resolve_member(settings_class, setting_name)
+        if getattr(type(member.attribute), "SOURCELESS", False):
+            # no storage to delete from; the member itself still returns to
+            # its declared value, the pass's rule
+            _reset_member_value(settings_class, member)
+            return
         cache = SerializerCache(context)
         links = LinkSerializers(context)
         serializer = links.member_serializers(cache, member)[0]
@@ -425,6 +441,8 @@ def contains_setting(context: SettingsContext, setting_name: str) -> bool:
     settings_class = context.settings_class
     with context.lock:
         member = resolve_member(settings_class, setting_name)
+        if getattr(type(member.attribute), "SOURCELESS", False):
+            return False  # no storage holds anything for the member
         cache = SerializerCache(context)
         links = LinkSerializers(context)
         serializer = links.member_serializers(cache, member)[0]

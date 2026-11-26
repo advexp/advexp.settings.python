@@ -40,22 +40,27 @@ runtime, but type checkers report a type mismatch for it (see
 """
 
 from advexp.settings.plugins.yaml_settings.configuration import YAMLSettingsConfiguration
-from advexp.settings.plugins.yaml_settings.options import yaml_file, yaml_source
+from advexp.settings.plugins.yaml_settings.options import (
+    yaml_dynamic_file,
+    yaml_file,
+    yaml_source,
+)
 from advexp.settings.plugins.yaml_settings.plugin import YAMLSettingsPlugin
 from advexp.settings.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.settings.plugins.yaml_settings.setting import YAMLSetting, yaml_setting
 from advexp.settings_base.yaml_file import YAML_FILE_METADATA
 from advexp.settings_base.yaml_options import NAME_PATTERN, YAML_METADATA_OPTIONS
+from advexp.settings_base.yaml_setting import YAMLSetting, yaml_setting
 
 __all__ = [
     "NAME_PATTERN",
     "YAML_FILE_METADATA",
     "YAML_METADATA_OPTIONS",
-    "YAMLSetting",
     "YAMLSettingsConfiguration",
     "YAMLSettingsPlugin",
     "YAMLSettingsSerializer",
+    "yaml_dynamic_file",
     "yaml_file",
+    "YAMLSetting",
     "yaml_setting",
     "yaml_source",
 ]

@@ -14,7 +14,8 @@ The walkthrough that was done by hand once covers:
 - snapshots;
 - inheritance;
 - metadata;
-- dynamic settings.
+- dynamic settings;
+- extension plugins.
 
 It is re-run by::
 
@@ -44,6 +45,9 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 from advexp.settings import (
+    MISSING_NONE,
+    MISSING_RAISE,
+    MISSING_SKIP,
     REQUIRED,
     AggregateLoadError,
     ConstraintViolationError,
@@ -53,18 +57,20 @@ from advexp.settings import (
     MissingValueError,
     PluginNotEnabledError,
     SecretStr,
+    SettingDeclarations,
     Settings,
     SettingValidationError,
     SourceLoadError,
     declared_module_defaults,
-    env_parameter,
     for_this_module,
-    non_storage_setting,
     setting,
+    settings_profile,
+    sourceless_setting,
 )
 from advexp.settings.plugin_api import (
     NOT_FOUND,
     AttributeSerializerBinding,
+    ExtensionBasePlugin,
     ISettingAttribute,
     SettingsAttribute,
     SettingsBasePlugin,
@@ -76,22 +82,21 @@ from advexp.settings.plugins.environment.dotenv import (
     DotenvConfiguration,
     DotenvPlugin,
     dotenv_file,
-    dotenv_setting,
     dotenv_source,
 )
 from advexp.settings.plugins.environment.variables import (
     env_source,
-    environment_variable_setting,
 )
 from advexp.settings.plugins.json_dynamic_settings import (
+    JSON_DYNAMIC_FILE_METADATA,
     JSONDynamicSettingsConfiguration,
     JSONDynamicSettingsPlugin,
 )
 from advexp.settings.plugins.json_settings import (
     JSON_FILE_METADATA,
     JSONSettingsConfiguration,
+    json_dynamic_file,
     json_file,
-    json_setting,
     json_source,
 )
 from advexp.settings.plugins.mapping_source import mapping_source, mapping_source_for
@@ -100,17 +105,33 @@ from advexp.settings.plugins.toml_dynamic_settings import (
 )
 from advexp.settings.plugins.toml_settings import (
     TOMLSettingsConfiguration,
+    toml_dynamic_file,
     toml_file,
-    toml_setting,
     toml_source,
 )
+from advexp.settings.plugins.yaml_dynamic_settings import (
+    YAMLDynamicSettingsPlugin,
+)
 from advexp.settings.plugins.yaml_settings import (
-    yaml_setting,
+    yaml_dynamic_file,
     yaml_source,
 )
+from advexp.settings_base.dotenv_setting import (
+    dotenv_setting,
+)
+from advexp.settings_base.environment_variable_setting import (
+    environment_variable_setting,
+)
 from advexp.settings_base.file_bom import UTF8_BOM
+from advexp.settings_base.json_setting import JSONSetting, json_setting
 from advexp.settings_base.module_default import _DECLARED_VALUES
 from advexp.settings_base.sources import ENVIRONMENT_SOURCE_METADATA, JSON_SOURCE_METADATA
+from advexp.settings_base.toml_setting import (
+    toml_setting,
+)
+from advexp.settings_base.yaml_setting import (
+    yaml_setting,
+)
 
 
 class Color(enum.Enum):
@@ -313,17 +334,17 @@ def blocking_save_setting(**kwargs: Any) -> Any:
 
 def test_a1_default_is_converted_before_any_load():
     class S(Settings):
-        retries: int = non_storage_setting(default="8080")
+        retries: int = sourceless_setting(default="8080")
 
     assert S.retries == 8080
     assert isinstance(S.retries, int)
 
 
-def test_a2_member_without_default_serves_none_and_never_aborts(monkeypatch):
+def test_a2_member_with_default_none_serves_none_and_never_aborts(monkeypatch):
     monkeypatch.delenv("MTX_A2_PLAIN", raising=False)
 
     class S(Settings):
-        plain: str = environment_variable_setting(name="MTX_A2_PLAIN")
+        plain: str = environment_variable_setting(name="MTX_A2_PLAIN", default=None)
 
     report = S.load_settings()
 
@@ -368,7 +389,7 @@ def test_a5_required_with_a_value_loads_cleanly(monkeypatch):
 
 def test_a6_mutable_default_is_never_shared():
     class S(Settings):
-        items: List[int] = non_storage_setting(default=[])
+        items: List[int] = sourceless_setting(default=[])
 
     first = S.items
     first.append(1)
@@ -399,7 +420,7 @@ def test_a8_constraint_rejecting_the_none_stand_in_fails_the_class():
     with pytest.raises(TypeError, match="member"):
 
         class S(Settings):
-            member: int = environment_variable_setting(name="MTX_A8_MEMBER", eq=5)
+            member: int = environment_variable_setting(name="MTX_A8_MEMBER", default=None, eq=5)
 
 
 # ---------------------------------------------------------------------------
@@ -411,40 +432,40 @@ def test_b1_unconvertible_default_fails_the_class_statement():
     with pytest.raises(TypeError, match="born"):
 
         class S(Settings):
-            born: date = non_storage_setting(default="not-a-date")
+            born: date = sourceless_setting(default="not-a-date")
 
 
 def test_b2_bool_default_on_an_int_member_fails():
     with pytest.raises(TypeError):
 
         class S(Settings):
-            count: int = non_storage_setting(default=True)
+            count: int = sourceless_setting(default=True)
 
 
 def test_b3_custom_class_default_is_checked_with_isinstance():
     with pytest.raises(TypeError):
 
         class S(Settings):
-            endpoint: MatrixEndpoint = non_storage_setting(default="https://x")
+            endpoint: MatrixEndpoint = sourceless_setting(default="https://x")
 
 
 def test_b4_regex_that_does_not_compile_fails_the_declaration():
     with pytest.raises(ValueError):
 
         class S(Settings):
-            code: str = non_storage_setting(default="code", regex="(")
+            code: str = sourceless_setting(default="code", regex="(")
 
 
 def test_b5_bad_validator_and_mixed_constraint_kinds_fail():
     with pytest.raises(TypeError):
 
         class S1(Settings):
-            count: int = non_storage_setting(default=1, validator=5)
+            count: int = sourceless_setting(default=1, validator=5)
 
     with pytest.raises(TypeError):
 
         class S2(Settings):
-            count: int = non_storage_setting(default=5, gt=1, min_length=1)
+            count: int = sourceless_setting(default=5, gt=1, min_length=1)
 
 
 def test_b6_option_key_declared_on_both_sides_fails_the_class_statement():
@@ -456,7 +477,7 @@ def test_b6_option_key_declared_on_both_sides_fails_the_class_statement():
         ):
             class_metadata = {"shared": 2}
 
-            count: int = non_storage_setting(default=1)
+            count: int = sourceless_setting(default=1)
 
 
 def test_b7_attribute_without_a_registered_plugin_names_the_fix():
@@ -478,8 +499,8 @@ def test_b8_default_state_violating_a_cross_rule_fails_the_class():
     with pytest.raises(TypeError):
 
         class S(Settings):
-            min_port: int = non_storage_setting(default=1024)
-            max_port: int = non_storage_setting(default=80, ge=min_port)
+            min_port: int = sourceless_setting(default=1024)
+            max_port: int = sourceless_setting(default=80, ge=min_port)
 
 
 def test_b9_a_plain_member_without_a_source_fails_the_class_statement():
@@ -983,7 +1004,7 @@ def test_e5_one_run_reports_errors_and_fallbacks_apart(monkeypatch):
 
 def test_e6_clean_load_returns_an_empty_report_and_stays_silent(caplog):
     class S(Settings):
-        member: int = non_storage_setting(default=1)
+        member: int = sourceless_setting(default=1)
 
     with caplog.at_level(logging.WARNING, logger="advexp.settings"):
         report = S.load_settings()
@@ -1108,8 +1129,8 @@ def test_f1_value_types_survive_the_round_trip(tmp_path):
 
 def test_f2_update_from_dict_conversion_failure_applies_nothing():
     class S(Settings):
-        count: int = non_storage_setting(default=5)
-        text: str = non_storage_setting(default="keep")
+        count: int = sourceless_setting(default=5)
+        text: str = sourceless_setting(default="keep")
 
     with pytest.raises(ValueError, match="abc"):
         S.update_from_dict({"count": "abc", "text": "new"})
@@ -1138,7 +1159,7 @@ def test_f3_constraint_reports_mask_the_secret(monkeypatch):
 
 def test_f4_true_is_not_an_int():
     class S(Settings):
-        count: int = non_storage_setting(default=5)
+        count: int = sourceless_setting(default=5)
 
     with pytest.raises(ValueError):
         S.update_from_dict({"count": True})
@@ -1168,7 +1189,7 @@ def test_f5_dataclass_storage_tolerates_missing_and_extra_fields(tmp_path):
 
 def test_g1_invalid_assignment_never_reaches_the_storage():
     class S(Settings):
-        port: int = non_storage_setting(default=80, le=65535)
+        port: int = sourceless_setting(default=80, le=65535)
 
     with pytest.raises(SettingValidationError):
         S.port = 70000
@@ -1215,8 +1236,8 @@ def test_g3_single_setting_save_runs_no_cross_checks(tmp_path):
 
 def test_g4_validate_settings_collects_problems_and_changes_nothing():
     class S(Settings):
-        min_port: int = non_storage_setting(default=1024)
-        max_port: int = non_storage_setting(default=65535, ge=min_port)
+        min_port: int = sourceless_setting(default=1024)
+        max_port: int = sourceless_setting(default=65535, ge=min_port)
 
     S.max_port = 80
     with pytest.raises(SettingValidationError) as info:
@@ -1251,8 +1272,8 @@ def test_g5_cross_rule_violation_on_load_resets_the_participants(tmp_path, caplo
 
 def test_g6_when_gates_the_constraints():
     class S(Settings):
-        ssl: bool = non_storage_setting(default=False)
-        port: int = non_storage_setting(default=80, eq=443, when=ssl)
+        ssl: bool = sourceless_setting(default=False)
+        port: int = sourceless_setting(default=80, eq=443, when=ssl)
 
     assert S.port == 80  # ssl is off: eq does not apply
 
@@ -1266,8 +1287,8 @@ def test_g6_when_gates_the_constraints():
 
 def test_g7_validate_hook_reports_and_must_return_a_dict():
     class S(Settings):
-        mode: str = non_storage_setting(default="dev")
-        ssl: Optional[str] = non_storage_setting(default=None)
+        mode: str = sourceless_setting(default="dev")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -1281,7 +1302,7 @@ def test_g7_validate_hook_reports_and_must_return_a_dict():
     assert "ssl" in info.value.problems
 
     class Broken(Settings):
-        member: int = non_storage_setting(default=1)
+        member: int = sourceless_setting(default=1)
 
         def __validate__(self) -> Any:
             return "not a dict"
@@ -1297,7 +1318,7 @@ def test_g8_validator_bugs_propagate_as_is(monkeypatch, caplog):
         return value > 0
 
     class S(Settings):
-        count: int = non_storage_setting(default=1, validator=no_zero)
+        count: int = sourceless_setting(default=1, validator=no_zero)
 
     with pytest.raises(RuntimeError, match="validator bug"):
         S.count = 0
@@ -1357,7 +1378,7 @@ def test_g10_hook_finding_resets_the_named_loaded_member(monkeypatch, caplog):
     monkeypatch.setenv("MTX_G10_SSL", "set")
 
     class S(Settings):
-        mode: str = non_storage_setting(default="dev")
+        mode: str = sourceless_setting(default="dev")
         ssl: Optional[str] = environment_variable_setting(name="MTX_G10_SSL", default=None)
 
         def __validate__(self) -> dict:
@@ -1380,8 +1401,8 @@ def test_g10_hook_finding_resets_the_named_loaded_member(monkeypatch, caplog):
 
 def test_g11_hook_gates_bulk_updates():
     class S(Settings):
-        mode: str = non_storage_setting(default="dev")
-        ssl: Optional[str] = non_storage_setting(default=None)
+        mode: str = sourceless_setting(default="dev")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -1422,8 +1443,8 @@ def test_g13_the_hook_does_not_run_at_class_creation():
     # comparison rules alone; the README's five-point wording overstates
     # the hook's reach — it joins from the first load on (tour finding)
     class S(Settings):
-        mode: str = non_storage_setting(default="prod")
-        ssl: Optional[str] = non_storage_setting(default=None)
+        mode: str = sourceless_setting(default="prod")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -1440,7 +1461,7 @@ def test_g14_hook_exceptions_propagate_as_is():
     # finding: every checkpoint lets it through unchanged, and the class
     # keeps the values it held
     class S(Settings):
-        mode: str = non_storage_setting(default="dev")
+        mode: str = sourceless_setting(default="dev")
 
         def __validate__(self) -> dict:
             raise ZeroDivisionError("hook bug")
@@ -1460,7 +1481,7 @@ def test_g15_hook_reading_a_valueless_member_is_a_finding_everywhere(monkeypatch
     # — a problem line of SettingValidationError at the strict
     # checkpoints, an entry of the load abort at load
     class S(Settings):
-        mode: str = non_storage_setting(default="dev")
+        mode: str = sourceless_setting(default="dev")
         token: str = environment_variable_setting(name="MTX_G15_TOKEN", default=REQUIRED)
 
         def __validate__(self) -> dict:
@@ -1584,8 +1605,8 @@ def test_h2_delete_restores_the_default_and_clears_the_storage(tmp_path):
 
 def test_h3_reset_settings_resets_every_member():
     class S(Settings):
-        first: int = non_storage_setting(default=1)
-        second: str = non_storage_setting(default="x")
+        first: int = sourceless_setting(default=1)
+        second: str = sourceless_setting(default="x")
 
     S.first = 5
     S.second = "y"
@@ -1643,9 +1664,9 @@ def test_h6_default_reset_clears_a_required_member(monkeypatch):
     monkeypatch.setenv("MTX_H6_TOKEN", "s3cret")
 
     class S(Settings):
-        first: int = non_storage_setting(default=1)
+        first: int = sourceless_setting(default=1)
         token: str = environment_variable_setting(name="MTX_H6_TOKEN", default=REQUIRED)
-        last: int = non_storage_setting(default=3)
+        last: int = sourceless_setting(default=3)
 
     S.load_settings()
     S.first = 5
@@ -1671,7 +1692,7 @@ def test_h7_delete_leaves_a_required_member_unset(monkeypatch, caplog):
 
     class S(Settings):
         token: str = environment_variable_setting(name="MTX_H7_TOKEN", default=REQUIRED)
-        mode: str = non_storage_setting(default="on")
+        mode: str = sourceless_setting(default="on")
 
     S.load_settings()
     with caplog.at_level(logging.ERROR, logger="advexp.settings"):
@@ -1694,7 +1715,7 @@ def test_h7_delete_leaves_a_required_member_unset(monkeypatch, caplog):
 
 def test_i1_to_dict_hands_out_deep_copies():
     class S(Settings):
-        items: List[int] = non_storage_setting(default=[1])
+        items: List[int] = sourceless_setting(default=[1])
 
     snapshot = S.to_dict()
     snapshot["items"].append(99)
@@ -1704,7 +1725,7 @@ def test_i1_to_dict_hands_out_deep_copies():
 
 def test_i2_update_from_dict_unknown_key_names_the_settings():
     class S(Settings):
-        member: int = non_storage_setting(default=1)
+        member: int = sourceless_setting(default=1)
 
     with pytest.raises(KeyError) as info:
         S.update_from_dict({"typo": 2})
@@ -1714,8 +1735,8 @@ def test_i2_update_from_dict_unknown_key_names_the_settings():
 
 def test_i3_updates_are_all_or_nothing():
     class S(Settings):
-        first: int = non_storage_setting(default=1)
-        second: int = non_storage_setting(default=2, le=10)
+        first: int = sourceless_setting(default=1)
+        second: int = sourceless_setting(default=2, le=10)
 
     with pytest.raises(SettingValidationError):
         S.update_from_dict({"first": 5, "second": 99})
@@ -1726,7 +1747,7 @@ def test_i3_updates_are_all_or_nothing():
 
 def test_i4_object_snapshots_are_detached_and_validated():
     class S(Settings):
-        port: int = non_storage_setting(default=80, le=65535)
+        port: int = sourceless_setting(default=80, le=65535)
 
     state = S.to_object()
     state.port = 8080
@@ -1745,8 +1766,8 @@ def test_i5_ignore_unknown_skips_foreign_keys_with_a_debug_record(caplog):
     # another model — passes ignore_unknown=True and the foreign keys
     # drop out with a debug record, the way the load overrides drop them
     class S(Settings):
-        port: int = non_storage_setting(default=80)
-        token: str = non_storage_setting(default="t")
+        port: int = sourceless_setting(default=80)
+        token: str = sourceless_setting(default="t")
 
     dump = {"port": 8080, "computed": 42}
 
@@ -1767,6 +1788,91 @@ def test_i5_ignore_unknown_skips_foreign_keys_with_a_debug_record(caplog):
     assert S.token == "obj"
 
 
+def test_i6_member_deletion_on_snapshots_and_instances():
+    class S(Settings):
+        port: int = sourceless_setting(default=80)
+
+    S.port = 8080
+
+    # the snapshot holds its own copy: the delete removes that value alone,
+    # the read falls back to the declared default, the class is untouched
+    state = S.to_object()
+    del state.port
+    assert state.port == 80
+    assert S.port == 8080
+
+    # no own value left: the second delete is a plain AttributeError
+    with pytest.raises(AttributeError, match="holds no own value for 'port'"):
+        del state.port
+
+    # a plain instance shares the class storage: the delete is refused
+    # with the class-level tool named
+    with pytest.raises(
+        TypeError,
+        match=r"the instance shares the class storage.*delete_setting\('port'\)",
+    ):
+        del S().port
+
+
+def test_i7_to_dict_missing_none_exports_required_members_as_none():
+    # a class that was never loaded has nothing to read on a required
+    # member; MISSING_NONE stands None in, and every member name stays
+    # in the dict — the shape a model with optional fields accepts
+    class S(Settings):
+        token: str = environment_variable_setting(name="MTX_I7_TOKEN")
+        width: int = sourceless_setting(default=800)
+
+    snapshot = S.to_dict(missing=MISSING_NONE)
+
+    assert snapshot == {"token": None, "width": 800}
+
+
+def test_i8_to_dict_missing_skip_leaves_required_members_out():
+    # MISSING_SKIP answers "what has a value": the snapshot holds the
+    # defaulted members alone, and the read of the rest never happens
+    class S(Settings):
+        token: str = environment_variable_setting(name="MTX_I8_TOKEN")
+        width: int = sourceless_setting(default=800)
+
+    snapshot = S.to_dict(missing=MISSING_SKIP)
+
+    assert snapshot == {"width": 800}
+
+
+def test_i9_to_dict_missing_mode_is_validated():
+    # the mode is a named constant, and a typo fails the call up front,
+    # with the error listing every accepted mode
+    class S(Settings):
+        width: int = sourceless_setting(default=800)
+
+    with pytest.raises(ValueError, match="is not one of") as info:
+        S.to_dict(missing="bogus")
+
+    text = str(info.value)
+    assert repr(MISSING_RAISE) in text
+    assert repr(MISSING_NONE) in text
+    assert repr(MISSING_SKIP) in text
+
+
+def test_i10_none_into_a_non_optional_member_records_a_warning(caplog):
+    # None crosses the update boundary as a value: an Optional member
+    # takes it silently, a member whose annotation has no None takes it
+    # with a warning that names the member and its annotation
+    class S(Settings):
+        port: int = sourceless_setting(default=80)
+        note: Optional[str] = sourceless_setting(default="n/a")
+
+    with caplog.at_level(logging.WARNING, logger="advexp.settings"):
+        S.update_from_dict({"port": None, "note": None})
+
+    assert S.port is None
+    assert S.note is None
+    port_records = [record for record in caplog.records if "'port'" in record.getMessage()]
+    assert len(port_records) == 1
+    assert "int" in port_records[0].getMessage()
+    assert not [record for record in caplog.records if "'note'" in record.getMessage()]
+
+
 # ---------------------------------------------------------------------------
 # J. Inheritance and instances
 # ---------------------------------------------------------------------------
@@ -1779,7 +1885,7 @@ def test_j1_subclass_loads_base_members_into_its_own_storage(monkeypatch):
         mode: str = environment_variable_setting(name="MTX_J1_MODE", default="base-default")
 
     class Child(Base):
-        extra: int = non_storage_setting(default=1)
+        extra: int = sourceless_setting(default=1)
 
     Child.load_settings()
 
@@ -1837,7 +1943,7 @@ def test_j3_a_branch_redeclares_the_member_under_its_own_naming(monkeypatch):
 
 def test_j4_instances_share_the_class_storage():
     class S(Settings):
-        count: int = non_storage_setting(default=1)
+        count: int = sourceless_setting(default=1)
 
     instance = S()
     instance.count = 7
@@ -1854,7 +1960,7 @@ def test_k1_declared_metadata_is_readable_without_runtime_calls():
     class S(Settings):
         class_metadata = {"config-version": 2}
 
-        mode: str = non_storage_setting(default="production", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="production", metadata={"ui-label": "Mode"})
 
     assert S.get_setting_metadata("mode", "ui-label") == "Mode"
     assert S.get_class_all_metadata() == {"config-version": 2}
@@ -1862,10 +1968,12 @@ def test_k1_declared_metadata_is_readable_without_runtime_calls():
 
 def test_k2_runtime_deleted_declared_entry_does_not_reappear():
     class S(Settings):
-        mode: str = non_storage_setting(default="x", metadata={"ui-label": "Mode"})
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
 
     assert S.delete_setting_metadata("mode", "ui-label") is True
-    assert S.get_setting_metadata("mode", "ui-label") is None
+    # the deleted entry answers KeyError: nothing brings it back on its own
+    with pytest.raises(KeyError, match="not a metadata entry"):
+        S.get_setting_metadata("mode", "ui-label")
 
 
 def test_k3_metadata_resolves_along_the_inheritance_chain():
@@ -1881,6 +1989,59 @@ def test_k3_metadata_resolves_along_the_inheritance_chain():
     Base.set_class_metadata("runtime", 1)
     assert Child.get_class_metadata("runtime") == 1
     assert Base.get_class_metadata("runtime") == 1
+
+
+def test_k4_delete_all_drops_the_whole_bucket_of_the_member():
+    class S(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    S.set_setting_metadata("mode", "hint", "Runtime hint")
+    assert S.delete_setting_all_metadata("mode") is None
+    assert S.get_setting_all_metadata("mode") == {}
+    # an empty bucket: not an error
+    S.delete_setting_all_metadata("mode")
+
+
+def test_k5_service_records_stay_out_of_the_listing():
+    class S(
+        Settings,
+        options=env_source(name_prefix="K5_"),
+    ):
+        class_metadata = {"origin": "seed"}
+
+    # the snapshot lists the open channel alone; the source seat and the
+    # naming dictionary stay addressable by their flat names
+    assert S.get_class_all_metadata() == {"origin": "seed"}
+    assert S.contains_class_metadata(ENVIRONMENT_SOURCE_METADATA)
+
+
+def test_k6_reset_restores_the_declared_state():
+    class S(Settings):
+        class_metadata = {"origin": "seed"}
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    S.set_setting_metadata("mode", "hint", "Runtime hint")
+    S.delete_class_metadata("origin")
+    S.set_class_metadata("runtime-key", 1)
+
+    S.reset_setting_all_metadata("mode")
+    S.reset_class_all_metadata()
+
+    assert S.get_setting_all_metadata("mode") == {"ui-label": "Mode"}
+    assert S.get_class_all_metadata() == {"origin": "seed"}
+
+
+def test_k7_a_missing_entry_follows_the_dictionary_rule():
+    class S(Settings):
+        mode: str = sourceless_setting(default="x", metadata={"ui-label": "Mode"})
+
+    S.delete_setting_metadata("mode", "ui-label")
+    # no default= for a missing entry: KeyError lists what is available;
+    # default= serves the fallback; contains probes without raising
+    with pytest.raises(KeyError, match="available metadata: none"):
+        S.get_setting_metadata("mode", "ui-label")
+    assert S.get_setting_metadata("mode", "ui-label", "fallback") == "fallback"
+    assert not S.contains_setting_metadata("mode", "ui-label")
 
 
 # ---------------------------------------------------------------------------
@@ -1973,6 +2134,188 @@ def test_l4_toml_dynamic_entries_live_beside_the_static_and_none_drops(tmp_path)
     plugin.set_setting("flag", None)
     plugin.save_settings()
     assert tomllib.loads(path.read_text(encoding="utf-8")) == {"member": 1}
+
+
+def test_l5_dynamic_metadata_follows_the_dictionary_rule(tmp_path):
+    path = tmp_path / "l5.json"
+
+    class S(
+        Settings,
+        options=json_source(file=path, dynamic_file=path),
+    ):
+        member: int = json_setting(name="member", default=1)
+
+    plugin = S.get_plugin(JSONDynamicSettingsPlugin)
+    plugin.set_setting("flag", True)
+    plugin.set_setting_metadata("flag", "ui-label", "Flag")
+    # no default for a missing entry: KeyError lists what the name carries;
+    # default serves the fallback; contains probes without raising
+    with pytest.raises(KeyError, match="available metadata: ui-label"):
+        plugin.get_setting_metadata("flag", "hint")
+    assert plugin.get_setting_metadata("flag", "hint", "fallback") == "fallback"
+    assert not plugin.contains_setting_metadata("flag", "hint")
+
+
+def test_l6_dynamic_file_seats_serve_a_foreign_bound_class(tmp_path, monkeypatch):
+    # json_dynamic_file and its twins seat the dynamic entries' own file for
+    # a class whose binding is held by another family: the plain members
+    # keep the class's single source, and every family's dynamic collection
+    # writes its seated file
+    monkeypatch.setenv("MTX_L6_MODE", "prod")
+    json_seat = tmp_path / "l6-dynamic.json"
+    toml_seat = tmp_path / "l6-dynamic.toml"
+    yaml_seat = tmp_path / "l6-dynamic.yaml"
+
+    class J(
+        Settings,
+        options=(
+            env_source(name_prefix="MTX_L6_", name_case=NameCase.UPPER),
+            json_dynamic_file(json_seat),
+        ),
+    ):
+        mode: str = "production"  # plain: the class's one source is env
+
+    class T(
+        Settings,
+        options=(
+            env_source(name_prefix="MTX_L6_", name_case=NameCase.UPPER),
+            toml_dynamic_file(toml_seat),
+        ),
+    ):
+        mode: str = "production"
+
+    class Y(
+        Settings,
+        options=(
+            env_source(name_prefix="MTX_L6_", name_case=NameCase.UPPER),
+            yaml_dynamic_file(yaml_seat),
+        ),
+    ):
+        mode: str = "production"
+
+    J.load_settings()
+    assert J.mode == "prod"
+
+    json_plugin = J.get_plugin(JSONDynamicSettingsPlugin)
+    json_plugin.set_setting("flag", True)
+    json_plugin.save_settings()
+    # the seated file holds the section layout of the family; the plugin
+    # handle reads the same seat at runtime
+    entries = json.loads(json_seat.read_text(encoding="utf-8"))["dynamic"]
+    (seat_entries,) = entries.values()  # the class key of J is the only one
+    assert seat_entries == {"flag": True}
+    assert json_plugin.file_path == json_seat
+
+    for settings_class, plugin_class, seat in (
+        (T, TOMLDynamicSettingsPlugin, toml_seat),
+        (Y, YAMLDynamicSettingsPlugin, yaml_seat),
+    ):
+        plugin = settings_class.get_plugin(plugin_class)
+        plugin.set_setting("flag", True)
+        plugin.save_settings()
+        assert seat.exists()
+        assert plugin.file_path == seat
+
+
+def test_l7_dynamic_seat_refuses_bad_values_and_double_declaration(tmp_path):
+    # the seat's path is checked at the builder call, and the seat next to
+    # the dynamic_file= parameter of its own family's source builder is one
+    # metadata name declared twice: the class statement refuses the pair
+    with pytest.raises(TypeError, match="invalid JSON dynamic file binding"):
+        json_dynamic_file(42)
+    with pytest.raises(TypeError, match="invalid TOML dynamic file binding"):
+        toml_dynamic_file("")
+    with pytest.raises(TypeError, match="invalid YAML dynamic file binding"):
+        yaml_dynamic_file(None)
+
+    with pytest.raises(
+        TypeError,
+        match=(
+            "Guarded declares the metadata name\\(s\\) "
+            f"'{JSON_DYNAMIC_FILE_METADATA}' more than once in options="
+        ),
+    ):
+
+        class Guarded(
+            Settings,
+            options=(
+                json_source(file=tmp_path / "l7.json", dynamic_file=tmp_path / "l7-x.json"),
+                json_dynamic_file(tmp_path / "l7-seat.json"),
+            ),
+        ):
+            pass
+
+
+def test_l8_dynamic_seat_neighbors_and_inheritance(tmp_path):
+    # the seat stands beside the spellings of its own family that name other
+    # channels: a plain source builder without dynamic_file=, and the static
+    # file seat. The seat itself is inherited along the class chain: the
+    # nearest entry wins, and a subclass's own seat switches only it and
+    # its subclasses
+    beside_source_seat = tmp_path / "l8-beside-source.json"
+    static_seat = tmp_path / "l8-static.json"
+    dynamic_seat = tmp_path / "l8-dynamic.json"
+
+    class BesidePlainSource(
+        Settings,
+        options=(
+            json_source(file=tmp_path / "l8.json"),
+            json_dynamic_file(beside_source_seat),
+        ),
+    ):
+        pass
+
+    assert BesidePlainSource.get_plugin(JSONDynamicSettingsPlugin).file_path == beside_source_seat
+
+    class BesideStaticSeat(
+        Settings,
+        options=(
+            json_file(static_seat),
+            json_dynamic_file(dynamic_seat),
+        ),
+    ):
+        retries: int = json_setting(name="retries", default=3)
+
+    BesideStaticSeat.save_settings()
+    BesideStaticSeat.get_plugin(JSONDynamicSettingsPlugin).set_setting("flag", True)
+    BesideStaticSeat.get_plugin(JSONDynamicSettingsPlugin).save_settings()
+    # the two files of the class are independent: each side wrote its own
+    assert json.loads(static_seat.read_text(encoding="utf-8")) == {"retries": 3}
+    assert dynamic_seat.exists()
+
+    base_seat = tmp_path / "l8-base.json"
+    own_seat = tmp_path / "l8-own.json"
+
+    class Base(
+        Settings,
+        options=(
+            env_source(name_prefix="MTX_L8_"),
+            json_dynamic_file(base_seat),
+        ),
+    ):
+        pass
+
+    class Child(Base):
+        pass  # no seat of its own: the base's file governs
+
+    class OwnSeat(Base):
+        # the body spelling of the same entry
+        class_metadata = {JSON_DYNAMIC_FILE_METADATA: str(own_seat)}
+
+    assert Base.get_plugin(JSONDynamicSettingsPlugin).file_path == base_seat
+    assert Child.get_plugin(JSONDynamicSettingsPlugin).file_path == base_seat
+    assert OwnSeat.get_plugin(JSONDynamicSettingsPlugin).file_path == str(own_seat)
+
+    child = Child.get_plugin(JSONDynamicSettingsPlugin)
+    child.set_setting("flag", True)
+    child.save_settings()
+    assert base_seat.exists()  # the child's entries landed in the base's file
+    assert not own_seat.exists()
+
+
+# ---------------------------------------------------------------------------
+# M. Message completeness: the context every diagnostic carries
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -2480,7 +2823,7 @@ def test_v1_ordering_bounds(parameter: str, bound: int, bad: int, good: int):
     constraints: dict[str, Any] = {parameter: bound}
 
     class S(Settings):
-        member: int = non_storage_setting(default=good, **constraints)
+        member: int = sourceless_setting(default=good, **constraints)
 
     with pytest.raises(SettingValidationError):
         S.member = bad
@@ -2491,8 +2834,8 @@ def test_v1_ordering_bounds(parameter: str, bound: int, bad: int, good: int):
 
 def test_v2_eq_and_ne():
     class S(Settings):
-        pinned: int = non_storage_setting(default=5, eq=5)
-        banned: int = non_storage_setting(default=6, ne=5)
+        pinned: int = sourceless_setting(default=5, eq=5)
+        banned: int = sourceless_setting(default=6, ne=5)
 
     with pytest.raises(SettingValidationError):
         S.pinned = 6
@@ -2506,8 +2849,8 @@ def test_v2_eq_and_ne():
 
 def test_v3_length_bounds():
     class S(Settings):
-        name: str = non_storage_setting(default="ab", min_length=2, max_length=4)
-        tags: List[str] = non_storage_setting(default=["seed"], min_length=1)
+        name: str = sourceless_setting(default="ab", min_length=2, max_length=4)
+        tags: List[str] = sourceless_setting(default=["seed"], min_length=1)
 
     with pytest.raises(SettingValidationError):
         S.name = "a"
@@ -2525,8 +2868,8 @@ def test_v3_length_bounds():
 def test_v4_regex_is_unanchored():
     # the anchors are the declarer's: a bare pattern matches anywhere
     class S(Settings):
-        anywhere: str = non_storage_setting(default="hello", regex="ell")
-        exact: str = non_storage_setting(default="ell", regex=r"^ell$")
+        anywhere: str = sourceless_setting(default="hello", regex="ell")
+        exact: str = sourceless_setting(default="ell", regex=r"^ell$")
 
     S.anywhere = "shell"
     with pytest.raises(SettingValidationError):
@@ -2540,7 +2883,7 @@ def test_v5_validator_callable():
         return value % 2 == 0
 
     class S(Settings):
-        count: int = non_storage_setting(default=2, validator=even)
+        count: int = sourceless_setting(default=2, validator=even)
 
     with pytest.raises(SettingValidationError):
         S.count = 3
@@ -2551,10 +2894,10 @@ def test_v5_validator_callable():
 
 def test_v6_none_passes_ordering_length_regex_and_ne_but_not_eq():
     class S(Settings):
-        bounded: Optional[int] = non_storage_setting(default=None, gt=0)
-        texty: Optional[str] = non_storage_setting(default=None, regex="ell", min_length=1)
-        banned: Optional[int] = non_storage_setting(default=None, ne=5)
-        pinned: int = non_storage_setting(default=5, eq=5)
+        bounded: Optional[int] = sourceless_setting(default=None, gt=0)
+        texty: Optional[str] = sourceless_setting(default=None, regex="ell", min_length=1)
+        banned: Optional[int] = sourceless_setting(default=None, ne=5)
+        pinned: int = sourceless_setting(default=5, eq=5)
 
     S.bounded = None
     S.texty = None
@@ -2568,20 +2911,20 @@ def test_v7_constraints_a_value_cannot_apply_to_are_violations():
     with pytest.raises(TypeError, match="not comparable"):
 
         class BadOrdering(Settings):
-            member: object = non_storage_setting(default="text", gt=0)
+            member: object = sourceless_setting(default="text", gt=0)
 
     with pytest.raises(TypeError, match="no length"):
 
         class BadLength(Settings):
-            member: int = non_storage_setting(default=5, min_length=2)
+            member: int = sourceless_setting(default=5, min_length=2)
 
     with pytest.raises(TypeError, match="not a string"):
 
         class BadRegex(Settings):
-            member: object = non_storage_setting(default=5, regex=r"\d+")
+            member: object = sourceless_setting(default=5, regex=r"\d+")
 
     class S(Settings):
-        member: object = non_storage_setting(default=3, gt=0)
+        member: object = sourceless_setting(default=3, gt=0)
 
     with pytest.raises(SettingValidationError, match="not comparable"):
         S.member = "text"
@@ -2589,7 +2932,7 @@ def test_v7_constraints_a_value_cannot_apply_to_are_violations():
 
 def test_v8_instance_assignments_validate_too():
     class S(Settings):
-        port: int = non_storage_setting(default=80, le=65535)
+        port: int = sourceless_setting(default=80, le=65535)
 
     instance = S()
     with pytest.raises(SettingValidationError):
@@ -2601,10 +2944,10 @@ def test_v9_every_checkpoint_a_violation_meets(monkeypatch):
     with pytest.raises(TypeError, match="invalid defaults"):
 
         class AtClassCreation(Settings):
-            member: int = non_storage_setting(default=0, ge=1)
+            member: int = sourceless_setting(default=0, ge=1)
 
     class S(Settings):
-        member: int = non_storage_setting(default=5, ge=1)
+        member: int = sourceless_setting(default=5, ge=1)
 
     with pytest.raises(SettingValidationError):
         S.member = 0  # a plain assignment
@@ -2622,8 +2965,8 @@ def test_v9_every_checkpoint_a_violation_meets(monkeypatch):
     # the whole-class checkpoints need a pair: a single assignment runs no
     # cross checks, so the inconsistent state is reachable
     class Pair(Settings):
-        min_port: int = non_storage_setting(default=1024)
-        max_port: int = non_storage_setting(default=65535, ge=min_port)
+        min_port: int = sourceless_setting(default=1024)
+        max_port: int = sourceless_setting(default=65535, ge=min_port)
 
     Pair.max_port = 80
     with pytest.raises(SettingValidationError):
@@ -2644,7 +2987,7 @@ def test_w1_assignment_stores_the_value_exactly_as_given():
     # conversion is the load-and-update path: a plain assignment keeps
     # whatever it receives, the annotation included
     class S(Settings):
-        count: int = non_storage_setting(default=5)
+        count: int = sourceless_setting(default=5)
 
     S.count = "9"  # type: ignore[assignment]  # the behavior under test
 
@@ -3146,11 +3489,11 @@ def test_p6_the_naming_dictionary_has_one_seat_serving_both_storages(tmp_path):
 
 
 def test_p7_a_templated_file_reads_one_file_per_environment(tmp_path, monkeypatch):
-    app_env = env_parameter("MTX_P7_ENV", choices=("dev", "test", "prod"), default="dev")
+    profile = settings_profile("MTX_P7_ENV", choices=("dev", "test", "prod"), default="dev")
 
     class S(
         Settings,
-        options=json_source(file=tmp_path / "s-{MTX_P7_ENV}.json", parameters=app_env),
+        options=json_source(file=tmp_path / "s-{MTX_P7_ENV}.json", settings_profile=profile),
     ):
         token: str = "none"
 
@@ -3173,11 +3516,13 @@ def test_p7_a_templated_file_reads_one_file_per_environment(tmp_path, monkeypatc
     S.load_settings()
     assert S.token == "dev-value"  # the dev file the default pointed to
 
-    strict_env = env_parameter("MTX_P7_STRICT", choices=("a", "b"))
+    strict_env = settings_profile("MTX_P7_STRICT", choices=("a", "b"))
 
     class Strict(
         Settings,
-        options=json_source(file=tmp_path / "strict-{MTX_P7_STRICT}.json", parameters=strict_env),
+        options=json_source(
+            file=tmp_path / "strict-{MTX_P7_STRICT}.json", settings_profile=strict_env
+        ),
     ):
         token: str = "none"
 
@@ -3186,11 +3531,11 @@ def test_p7_a_templated_file_reads_one_file_per_environment(tmp_path, monkeypatc
 
 
 def test_p8_writes_land_in_the_environment_they_were_loaded_from(tmp_path, monkeypatch):
-    app_env = env_parameter("MTX_P8_ENV", choices=("dev", "test"))
+    profile = settings_profile("MTX_P8_ENV", choices=("dev", "test"))
 
     class S(
         Settings,
-        options=json_source(file=tmp_path / "p8-{MTX_P8_ENV}.json", parameters=app_env),
+        options=json_source(file=tmp_path / "p8-{MTX_P8_ENV}.json", settings_profile=profile),
     ):
         token: str = "none"
 
@@ -4023,3 +4368,333 @@ def test_y14_the_files_permission_mode_survives_the_save(tmp_path):
     S.port = 7
     S.save_settings()
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+# ---------------------------------------------------------------------------
+# U. Extension plugins: the second plugin kind
+# ---------------------------------------------------------------------------
+
+
+class MatrixExtension(ExtensionBasePlugin):
+    """The extension of the matrix rows: one operation over one class."""
+
+    @property
+    def plugin_name(self) -> str:
+        return "matrix-extension"
+
+    def settings_class_name(self) -> str:
+        """A plugin-specific operation served by the bound context."""
+        return self.context.settings_class.__name__
+
+
+LibraryConfiguration.register_settings_plugin(MatrixExtension)
+
+
+def test_u1_registration_makes_the_extension_reachable_and_adds_no_serializer():
+    # the registration of an extension is the plugin alone: nothing lands
+    # in the attribute-to-serializer registry, and the class becomes
+    # reachable through get_plugin
+    class RowExtension(ExtensionBasePlugin):
+        @property
+        def plugin_name(self) -> str:
+            return "row-extension"
+
+    before = set(LibraryConfiguration._attribute_serializers)
+    LibraryConfiguration.register_settings_plugin(RowExtension)
+    assert set(LibraryConfiguration._attribute_serializers) == before
+
+    class RowSettings(Settings):
+        pass
+
+    assert isinstance(RowSettings.get_plugin(RowExtension), RowExtension)
+
+
+def test_u2_the_bound_context_serves_the_extensions_operation():
+    # the class of the get_plugin call is the class the instance works
+    # with: the context is the class's own, the operation reads it, and
+    # another class gets its own instance
+    class FirstSettings(Settings):
+        pass
+
+    class SecondSettings(Settings):
+        pass
+
+    first = FirstSettings.get_plugin(MatrixExtension)
+    assert first.context is FirstSettings.__settings_context__
+    assert first.settings_class_name() == "FirstSettings"
+
+    second = SecondSettings.get_plugin(MatrixExtension)
+    assert first is not second
+    assert second.settings_class_name() == "SecondSettings"
+
+
+def test_u3_a_declared_binding_fails_the_class_statement():
+    # an extension declares no storage: the binding declaration is
+    # refused at the class statement, naming the class
+    with pytest.raises(TypeError, match="MatrixBoundExtension is an extension plugin"):
+
+        class MatrixBoundExtension(ExtensionBasePlugin):
+            binding = AttributeSerializerBinding(SettingsAttribute, SettingsBaseSerializer)
+
+            @property
+            def plugin_name(self) -> str:
+                return "matrix-bound"
+
+
+# ---------------------------------------------------------------------------
+# Z. Shared declarations: a declaration base for both packages (#105)
+# ---------------------------------------------------------------------------
+
+
+def test_z1_members_of_a_marked_base_load_from_the_class_source(tmp_path):
+    path = tmp_path / "z1.json"
+    path.write_text('{"Z1_port": 9000, "Z1_retries": 7}', encoding="utf-8")
+
+    class App(SettingDeclarations):
+        retries = setting(default=3, name="Z1_retries")
+        port = json_setting(name="Z1_port", default=8080)
+
+    class Z1(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        pass
+
+    Z1.load_settings()
+    assert Z1.retries == 7
+    assert Z1.port == 9000
+
+
+def test_z2_a_member_without_default_is_required_default_none_is_optional(tmp_path):
+    path = tmp_path / "z2.json"
+    path.write_text("{}", encoding="utf-8")
+
+    class App(SettingDeclarations):
+        needed = json_setting(name="Z2_needed")
+        maybe = json_setting(name="Z2_maybe", default=None)
+
+    class Z2(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        pass
+
+    assert Z2.maybe is None
+    with pytest.raises(AggregateLoadError, match="Z2_needed"):
+        Z2.load_settings()  # the required member without a value aborts
+
+
+def test_z3_the_body_wins_over_the_poured_declaration(tmp_path):
+    path = tmp_path / "z3.json"
+    path.write_text("{}", encoding="utf-8")
+
+    class App(SettingDeclarations):
+        retries: int = 3
+
+    class Z3(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        retries: int = 9  # the body's own declaration
+
+    Z3.load_settings()
+    assert Z3.retries == 9
+
+
+def test_z4_a_body_reference_turns_onto_the_poured_copy(tmp_path):
+    path = tmp_path / "z4.json"
+
+    class App(SettingDeclarations):
+        low = json_setting(name="Z4_low", default=0)
+
+    class Z4(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        high = json_setting(name="Z4_high", default=10, ge=App.low)
+
+    path.write_text('{"Z4_low": 5, "Z4_high": 10}', encoding="utf-8")
+    Z4.load_settings()
+    assert Z4.high == 10  # 10 passes: the bound is the loaded 5
+
+    # the rule reads the poured member's loaded value: a violating file
+    # value is the cross-member violation of the load, and the pass resets
+    # the member to its default
+    path.write_text('{"Z4_low": 5, "Z4_high": 4}', encoding="utf-8")
+    report = Z4.load_settings()
+    assert Z4.high == 10
+    assert "greater than or equal" in str(report)
+
+
+def test_z5_overriding_a_referenced_name_refuses_both_ways():
+    class App(SettingDeclarations):
+        low = setting(default=0)
+        high = setting(default=10, ge=low)
+
+    with pytest.raises(
+        TypeError, match="S.high references 'low' in ge=, but the body of S overrides"
+    ):
+
+        class S(
+            App,
+            Settings,
+            options=env_source(),
+        ):
+            low = setting(default=5)
+
+    class Other(SettingDeclarations):
+        low = setting(default=0)
+
+    with pytest.raises(
+        TypeError, match="S2.x references 'low' in ge=, but the body of S2 overrides"
+    ):
+
+        class S2(
+            Other,
+            Settings,
+            options=env_source(),
+        ):
+            x = setting(default=1, ge=Other.low)
+            low = setting(default=5)
+
+
+def test_z6_an_unmarked_plain_base_stays_silent():
+    class Mixin:
+        answer: int = 1  # an annotation of a plain mixin, no marker anywhere
+
+    class S(
+        Mixin,
+        Settings,
+        options=env_source(),
+    ):
+        pass
+
+    assert "answer" not in S.__settings_members__
+
+
+def test_z7_mutable_defaults_pour_as_independent_copies(tmp_path):
+    path = tmp_path / "z7.json"
+    path.write_text("{}", encoding="utf-8")
+
+    class App(SettingDeclarations):
+        tags: list = ["a"]
+
+    class B(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        pass
+
+    B.load_settings()
+    B.tags.append("b")
+    assert App.tags == ["a"]  # the blueprint keeps its own default
+
+
+def test_z8_one_base_serves_both_packages_in_one_process(tmp_path):
+    path = tmp_path / "z8.json"
+    path.write_text('{"Z8_port": 9000}', encoding="utf-8")
+
+    class App(SettingDeclarations):
+        port = json_setting(name="Z8_port", default=8080)
+
+    class B(
+        App,
+        Settings,
+        options=json_source(file=path),
+    ):
+        pass
+
+    from advexp.configuration import Configuration, Sources
+    from advexp.configuration.plugins.json_settings import (
+        json_source as config_json_source,
+    )
+
+    class C(
+        App,
+        Configuration,
+        options=Sources(config_json_source(file=path)),
+    ):
+        pass
+
+    B.load_settings()
+    C.load_configuration()
+    assert B.port == C.port == 9000
+
+
+def test_z9_a_family_member_without_its_source_and_plugin_refuses(monkeypatch):
+    class App(SettingDeclarations):
+        port = json_setting(default=8080)
+
+    # the json plugin of this package is imported by the test module: hide
+    # its family slot for the statement, and the missing source names the
+    # member — the plugin's module default would have served it otherwise
+    slot = ("advexp.settings", JSONSetting)
+    saved = LibraryConfiguration._attribute_serializers.pop(slot)
+    try:
+        with pytest.raises(TypeError, match="Z9.port is declared with JSONSetting"):
+
+            class Z9(
+                App,
+                Settings,
+                options=env_source(),
+            ):
+                pass
+    finally:
+        LibraryConfiguration._attribute_serializers[slot] = saved
+
+
+def test_z10_a_registered_subclass_outranks_the_links_serializer(tmp_path):
+    # the shared member classes are served by the serializer that the link of
+    # the family carries; a registered subclass of a plugin author keeps its
+    # own serializer anyway — the author's slot outranks the link's class
+    from advexp.settings.plugin_api import (
+        AttributeSerializerBinding,
+        LibraryConfiguration,
+        SettingsBaseSerializer,
+    )
+    from advexp.settings_base.json_setting import JSONSetting
+
+    class AlternateJsonSetting(JSONSetting):
+        pass
+
+    recorded: list = []
+
+    class AlternateSerializer(SettingsBaseSerializer):
+        def load(self, setting_name, attr):
+            recorded.append(setting_name)
+            return 42
+
+        def save(self, setting_name, attr, value):
+            pass
+
+        def delete(self, setting_name, attr):
+            pass
+
+        def contains(self, setting_name, attr):
+            return True
+
+    class AlternatePlugin(SettingsBasePlugin):
+        plugin_name = "matrix-alternate-json"
+        binding = AttributeSerializerBinding(AlternateJsonSetting, AlternateSerializer)
+
+    LibraryConfiguration.register_settings_plugin(AlternatePlugin)
+    try:
+        path = tmp_path / "z10.json"
+        path.write_text("{}", encoding="utf-8")
+
+        class Z10(
+            Settings,
+            options=json_source(file=path),
+        ):
+            answer = AlternateJsonSetting(name="Z10_answer", default=1)
+
+        Z10.load_settings()
+        assert Z10.answer == 42  # the subclass's own serializer served it
+        assert recorded == ["Z10_answer"]
+    finally:
+        LibraryConfiguration._attribute_serializers.pop((None, AlternateJsonSetting))

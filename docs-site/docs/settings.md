@@ -27,7 +27,8 @@ class AppSettings(
         js.json_file("app-settings.json"),
     ),
 ):
-    # read from APP_MODE: the prefix plus the member name in upper case
+    # read from the APP_MODE environment variable — the prefix
+    # plus the member name in upper case
     mode: str = "production"
 
     # the same APP_SESSION_TTL address as mode, in the rich setting
@@ -100,6 +101,11 @@ such as `retries`.
 - **Safe saving.** Saving updates only the settings being saved. Comments,
   formatting, and keys that the library does not recognize are left exactly
   as they were.
+- **Shared declarations.** Describe the members once in a plain base
+  class: the settings class and the configuration class inherit the same
+  declarations, each reading them through its own sources. See
+  [Shared declarations](shared-declarations.md).
+
 - **A read-only counterpart.** The Advexp.Configuration package uses the same
   declarations to load values from its sources, but never writes anything
   back.
@@ -118,11 +124,13 @@ such as `retries`.
   only at runtime.
 - [Setting metadata](metadata.md): labels and flags attached to settings,
   for use by UIs and code generators.
+- [Shared declarations](shared-declarations.md): one set of member
+  declarations for the settings and the configuration class.
 - [Extending](extending.md): custom attribute parameters and custom
   backends.
-- [Samples](samples.md): runnable example programs for both packages,
-  located in the project's repository.
 - [Configuration](configuration.md): Advexp.Configuration, the read-only
   counterpart.
+- [Samples](samples.md): runnable example programs for both packages,
+  located in the project's repository.
 - [API reference](api/index.md): classes, exceptions, and plugin interfaces,
   generated from the docstrings.

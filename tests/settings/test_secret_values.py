@@ -9,7 +9,6 @@ from typing import Optional
 import pytest
 
 from advexp.settings import SecretBytes, SecretStr, Settings, SettingValidationError
-from advexp.settings.plugins.environment.variables import environment_variable_setting
 from advexp.settings_base.conversion import (
     correct_type,
     is_secret_type,
@@ -17,6 +16,7 @@ from advexp.settings_base.conversion import (
     to_storage_string,
     unwrap_secret,
 )
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 
 # ---------------------------------------------------------------------------
 # the wrappers themselves
@@ -127,7 +127,9 @@ def test_save_stores_the_plain_payload(monkeypatch):
 
 def test_constraint_check_sees_inside_and_masks(caplog, monkeypatch):
     class Keyed(Settings):
-        api_key: SecretStr = environment_variable_setting(name="TEST_SVK_KEY2", min_length=8)
+        api_key: SecretStr = environment_variable_setting(
+            name="TEST_SVK_KEY2", default=None, min_length=8
+        )
 
     monkeypatch.setenv("TEST_SVK_KEY2", "short")
     with caplog.at_level(logging.WARNING, logger="advexp.settings"):

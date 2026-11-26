@@ -14,15 +14,16 @@ from typing import Iterator
 
 import pytest
 
-from advexp.settings import Settings
-from advexp.settings.plugin_api import NO_DEFAULT
+from advexp.settings import REQUIRED, Settings
 from advexp.settings.plugins.environment.variables import (
     EnvironmentVariableSetting,
     environment_variable_setting,
 )
 from advexp.settings.plugins.json_settings import (
-    JSONSetting,
     JSONSettingsConfiguration,
+)
+from advexp.settings_base.json_setting import (
+    JSONSetting,
     json_setting,
 )
 
@@ -52,11 +53,11 @@ def test_json_setting_default_sentinel_semantics() -> None:
     omitted = json_setting()
     assert omitted.name is None
     assert omitted.path is None
-    assert omitted.default is NO_DEFAULT
+    assert omitted.default is REQUIRED
     assert omitted.default_in_use is False
 
-    explicit_sentinel = json_setting(default=NO_DEFAULT)
-    assert explicit_sentinel.default is NO_DEFAULT
+    explicit_sentinel = json_setting(default=REQUIRED)
+    assert explicit_sentinel.default is REQUIRED
     assert explicit_sentinel.default_in_use is False
 
     none_value = json_setting(default=None)
@@ -88,7 +89,7 @@ def test_environment_variable_setting_matches_the_class_construction() -> None:
 def test_environment_variable_setting_default_sentinel_semantics() -> None:
     omitted = environment_variable_setting()
     assert omitted.name is None
-    assert omitted.default is NO_DEFAULT
+    assert omitted.default is REQUIRED
     assert omitted.default_in_use is False
 
     none_value = environment_variable_setting(default=None)

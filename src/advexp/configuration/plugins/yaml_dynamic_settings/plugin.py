@@ -11,14 +11,15 @@ example.
 from __future__ import annotations
 
 from advexp.configuration.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     DynamicSettingAttribute,
     LibraryConfiguration,
     ReadOnlyDocumentDynamicSettingsPlugin,
 )
 from advexp.configuration.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.configuration.plugins.yaml_settings.setting import YAMLSetting
 from advexp.settings_base.dynamic_document import YAML_DYNAMIC_GROUP_METADATA
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 class YAMLDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
@@ -34,6 +35,8 @@ class YAMLDynamicSettingsPlugin(ReadOnlyDocumentDynamicSettingsPlugin):
     and never touches the registration of ``YAMLSetting`` by the static source
     plugin.
     """
+
+    family = PACKAGE_NAME
 
     # the pin's own slot: the binding registered by the base setup() makes this
     # package self-sufficient — importing it alone is enough — and leaves the

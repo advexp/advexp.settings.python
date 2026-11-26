@@ -33,13 +33,13 @@ from advexp.settings import (
 )
 
 # noinspection PyProtectedMember
-from advexp.settings._internal.non_storage_setting import non_storage_setting
-from advexp.settings.plugins.environment.variables import environment_variable_setting
-
-# noinspection PyProtectedMember
 from advexp.settings_base import cross_validation
+from advexp.settings_base.environment_variable_setting import environment_variable_setting
 from advexp.settings_base.required import REQUIRED
 from advexp.settings_base.secret_str import SecretStr
+
+# noinspection PyProtectedMember
+from advexp.settings_base.sourceless_setting import sourceless_setting
 
 LOGGER = "advexp.settings"
 
@@ -55,8 +55,8 @@ def _names(*suffixes: str) -> dict:
 
 def test_member_reference_compares_with_the_actual_value():
     class Ranges(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     assert Ranges.high == 10  # the all-default state is consistent
     Ranges.validate_settings()
@@ -76,8 +76,8 @@ def test_single_assignment_never_runs_the_cross_member_checks():
     # changing a pair of related members one by one passes the intermediate
     # state through; the check is the user's to run afterwards
     class Ranges(Settings):
-        low: int = non_storage_setting(default=100)
-        high: int = non_storage_setting(default=200, ge=low)
+        low: int = sourceless_setting(default=100)
+        high: int = sourceless_setting(default=200, ge=low)
 
     Ranges.low = 3000  # no cross-member complaint here
     assert Ranges.low == 3000
@@ -93,8 +93,8 @@ def test_declared_defaults_of_a_violated_rule_fail_the_class_statement():
     with pytest.raises(TypeError) as info:
 
         class BadRanges(Settings):
-            low: int = non_storage_setting(default=100)
-            high: int = non_storage_setting(default=10, ge=low)
+            low: int = sourceless_setting(default=100)
+            high: int = sourceless_setting(default=10, ge=low)
 
     text = str(info.value)
     assert "invalid defaults in BadRanges" in text
@@ -104,9 +104,9 @@ def test_declared_defaults_of_a_violated_rule_fail_the_class_statement():
 
 def test_all_member_reference_findings_are_listed_at_once():
     class Triangle(Settings):
-        a: int = non_storage_setting(default=1)
-        b: int = non_storage_setting(default=2, ge=a)
-        c: int = non_storage_setting(default=3, ge=b)
+        a: int = sourceless_setting(default=1)
+        b: int = sourceless_setting(default=2, ge=a)
+        c: int = sourceless_setting(default=3, ge=b)
 
     Triangle.__settings_values__.update({"a": 30, "b": 20, "c": 10})
     with pytest.raises(SettingValidationError) as info:
@@ -116,8 +116,8 @@ def test_all_member_reference_findings_are_listed_at_once():
 
 def test_none_of_an_optional_neighbor_takes_part_in_eq_and_ne():
     class OptionalRef(Settings):
-        token: Optional[str] = non_storage_setting(default=None)
-        same: Optional[str] = non_storage_setting(default=None, eq=token)
+        token: Optional[str] = sourceless_setting(default=None)
+        same: Optional[str] = sourceless_setting(default=None, eq=token)
 
     OptionalRef.validate_settings()  # None == None holds
     OptionalRef.same = "x"
@@ -131,7 +131,7 @@ def test_a_rule_whose_neighbor_holds_no_value_does_not_apply():
     # there is nothing to compare with, so the rule waits
     class Waiting(Settings):
         low: int = environment_variable_setting(name="XV_WAITING_LOW")
-        high: int = non_storage_setting(default=10, ge=low)
+        high: int = sourceless_setting(default=10, ge=low)
 
     Waiting.validate_settings()  # low has no value: the rule does not apply
     Waiting.low = 5
@@ -147,16 +147,16 @@ def test_incomparable_neighbor_value_is_a_violation_not_a_crash():
     with pytest.raises(TypeError) as info:
 
         class Mixed(Settings):
-            tag: str = non_storage_setting(default="a")
-            count: int = non_storage_setting(default=1, gt=tag)
+            tag: str = sourceless_setting(default="a")
+            count: int = sourceless_setting(default=1, gt=tag)
 
     assert "is not comparable with the gt bound, the value of 'tag'" in str(info.value)
 
 
 def test_secret_neighbor_value_stays_masked_in_messages():
     class WithSecret(Settings):
-        token: SecretStr = non_storage_setting(default=SecretStr("s3cr3t"))
-        echo: str = non_storage_setting(default="s3cr3t", eq=token)
+        token: SecretStr = sourceless_setting(default=SecretStr("s3cr3t"))
+        echo: str = sourceless_setting(default="s3cr3t", eq=token)
 
     WithSecret.__settings_values__["echo"] = "leak"  # the pair breaks
     with pytest.raises(SettingValidationError) as info:
@@ -168,18 +168,18 @@ def test_secret_neighbor_value_stays_masked_in_messages():
 
 def test_subclass_inherits_the_rule_and_redeclaration_resolves_by_name():
     class Base(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     class Sub(Base):
-        low: int = non_storage_setting(default=5)  # redeclared: the rule sees this value
+        low: int = sourceless_setting(default=5)  # redeclared: the rule sees this value
 
     Sub.validate_settings()  # 10 >= 5
 
     with pytest.raises(TypeError):
         # the redeclaration breaks the rule against the inherited high
         class Broken(Base):
-            low: int = non_storage_setting(default=50)
+            low: int = sourceless_setting(default=50)
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +188,8 @@ def test_subclass_inherits_the_rule_and_redeclaration_resolves_by_name():
 
 def test_when_gates_all_constraints_of_the_member():
     class Secure(Settings):
-        ssl: bool = non_storage_setting(default=False)
-        port: int = non_storage_setting(default=80, eq=443, when=ssl)
+        ssl: bool = sourceless_setting(default=False)
+        port: int = sourceless_setting(default=80, eq=443, when=ssl)
 
     assert Secure.port == 80  # ssl off: the default passes the creation check
     Secure.port = 8080  # ...and an assignment too
@@ -226,8 +226,8 @@ def test_when_resolves_against_the_actual_value_after_the_fallbacks():
 
 def test_a_late_neighbor_change_reactivates_the_dormant_rule():
     class Dormant(Settings):
-        ssl: bool = non_storage_setting(default=False)
-        port: int = non_storage_setting(default=80, eq=443, when=ssl)
+        ssl: bool = sourceless_setting(default=False)
+        port: int = sourceless_setting(default=80, eq=443, when=ssl)
 
     Dormant.ssl = True  # the dormant rule now judges the stored value
     with pytest.raises(SettingValidationError) as info:
@@ -241,8 +241,8 @@ def test_a_late_neighbor_change_reactivates_the_dormant_rule():
 
 def test_hook_findings_join_the_report_of_every_check():
     class Hooked(Settings):
-        mode: str = non_storage_setting(default="dev")
-        ssl: Optional[str] = non_storage_setting(default=None)
+        mode: str = sourceless_setting(default="dev")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -260,8 +260,8 @@ def test_hook_findings_join_the_report_of_every_check():
 
 def test_hook_and_declarative_rules_share_one_report():
     class Both(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
         def __validate__(self) -> dict:
             return {"high": "hook disagrees too"}
@@ -279,7 +279,7 @@ def test_hook_and_declarative_rules_share_one_report():
 
 def test_hook_runs_on_a_fully_built_snapshot_and_cannot_touch_the_class():
     class Guarded(Settings):
-        low: int = non_storage_setting(default=1)
+        low: int = sourceless_setting(default=1)
 
         def __validate__(self) -> dict:
             self.low = 999  # a violating hook: mutation must not stick
@@ -292,7 +292,7 @@ def test_hook_runs_on_a_fully_built_snapshot_and_cannot_touch_the_class():
 
 def test_hook_must_return_a_mapping():
     class BadHook(Settings):
-        value: int = non_storage_setting(default=1)
+        value: int = sourceless_setting(default=1)
 
         def __validate__(self) -> dict:
             return "nope"  # type: ignore[return-value]  # the negative scenario under test
@@ -306,7 +306,7 @@ def test_hook_exception_propagates_as_is():
         raise RuntimeError("bug in the hook")
 
     class Raising(Settings):
-        value: int = non_storage_setting(default=1)
+        value: int = sourceless_setting(default=1)
         __validate__ = boom
 
     with pytest.raises(RuntimeError, match="bug in the hook"):
@@ -321,15 +321,15 @@ def test_when_literal_fails_the_declaration():
     with pytest.raises(TypeError, match="when must reference a member"):
 
         class Literal(Settings):
-            value: int = non_storage_setting(default=1, when=True)
+            value: int = sourceless_setting(default=1, when=True)
 
 
 def test_reference_to_an_attribute_bound_to_no_member_fails():
-    orphan = non_storage_setting(default=1)
+    orphan = sourceless_setting(default=1)
     with pytest.raises(TypeError) as info:
 
         class Orphan(Settings):
-            value: int = non_storage_setting(default=2, ge=orphan)
+            value: int = sourceless_setting(default=2, ge=orphan)
 
     assert "references an attribute that is not declared as a member by any settings class" in str(
         info.value
@@ -338,7 +338,7 @@ def test_reference_to_an_attribute_bound_to_no_member_fails():
 
 def test_a_descriptor_bound_fails_the_declaration():
     class Other(Settings):
-        member: int = non_storage_setting(default=1)
+        member: int = sourceless_setting(default=1)
 
     with pytest.raises(TypeError, match="member of another"):
         # reading a settings class's member through the class yields its
@@ -346,7 +346,7 @@ def test_a_descriptor_bound_fails_the_declaration():
         # passed directly (the storage form of that misspelling) fails
         # loudly instead of becoming a bound nobody meant
         class ThroughClass(Settings):
-            value: int = non_storage_setting(
+            value: int = sourceless_setting(
                 default=2, ge=Other.__settings_members__["member"].descriptor
             )
 
@@ -535,8 +535,8 @@ def test_a_required_neighbor_that_found_nothing_aborts_the_load_once():
 
 def test_update_rejects_a_cross_member_violation_and_applies_nothing():
     class Ranges(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     with pytest.raises(SettingValidationError) as info:
         Ranges.update_from_dict({"low": 100, "high": 50})
@@ -546,8 +546,8 @@ def test_update_rejects_a_cross_member_violation_and_applies_nothing():
 
 def test_update_checks_the_new_values_beside_the_current_ones():
     class Ranges(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     Ranges.update_from_dict({"low": 5})  # 10 >= 5: the pair stays consistent
     assert Ranges.low == 5
@@ -558,8 +558,8 @@ def test_update_checks_the_new_values_beside_the_current_ones():
 
 def test_update_rejects_a_hook_finding_too():
     class Hooked(Settings):
-        mode: str = non_storage_setting(default="dev")
-        ssl: Optional[str] = non_storage_setting(default=None)
+        mode: str = sourceless_setting(default="dev")
+        ssl: Optional[str] = sourceless_setting(default=None)
 
         def __validate__(self) -> dict:
             if self.mode == "prod" and self.ssl is None:
@@ -577,8 +577,8 @@ def test_update_rejects_a_hook_finding_too():
 
 def test_update_resolves_when_against_the_merged_state():
     class Conditional(Settings):
-        ssl: bool = non_storage_setting(default=False)
-        port: int = non_storage_setting(default=80, eq=443, when=ssl)
+        ssl: bool = sourceless_setting(default=False)
+        port: int = sourceless_setting(default=80, eq=443, when=ssl)
 
     with pytest.raises(SettingValidationError) as info:
         Conditional.update_from_dict({"ssl": True})  # port=80 stays: eq wakes up
@@ -590,8 +590,8 @@ def test_update_resolves_when_against_the_merged_state():
 
 def test_update_from_object_shares_the_rules_of_update_from_dict():
     class Ranges(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     snapshot = Ranges.to_object()
     snapshot.low = 100
@@ -628,8 +628,8 @@ def test_save_raises_on_a_violation_and_writes_nothing(monkeypatch):
 
 def test_validate_settings_passes_quietly_on_a_consistent_class():
     class Fine(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
         def __validate__(self) -> dict:
             return {}
@@ -639,7 +639,7 @@ def test_validate_settings_passes_quietly_on_a_consistent_class():
 
 def test_validate_settings_changes_nothing():
     class Touched(Settings):
-        value: int = non_storage_setting(default=1, gt=0)
+        value: int = sourceless_setting(default=1, gt=0)
 
     Touched.__settings_values__["value"] = -1
     with pytest.raises(SettingValidationError):
@@ -649,9 +649,9 @@ def test_validate_settings_changes_nothing():
 
 def test_validate_settings_message_lists_every_finding():
     class Pair(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
-        empty: str = non_storage_setting(default="xx", min_length=2)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
+        empty: str = sourceless_setting(default="xx", min_length=2)
 
     Pair.__settings_values__.update({"high": 0, "empty": ""})
     with pytest.raises(SettingValidationError) as info:
@@ -688,7 +688,7 @@ def test_load_settles_a_broken_chain_in_rounds(caplog, monkeypatch):
 
 def test_a_hook_may_name_a_member_the_class_does_not_declare():
     class Stranger(Settings):
-        value: int = non_storage_setting(default=1)
+        value: int = sourceless_setting(default=1)
 
         def __validate__(self) -> dict:
             return {"elsewhere": "not a member"}
@@ -700,8 +700,8 @@ def test_a_hook_may_name_a_member_the_class_does_not_declare():
 
 def test_the_error_stays_a_plain_value_error():
     class Ranges(Settings):
-        low: int = non_storage_setting(default=1)
-        high: int = non_storage_setting(default=10, ge=low)
+        low: int = sourceless_setting(default=1)
+        high: int = sourceless_setting(default=10, ge=low)
 
     Ranges.high = 0
     try:

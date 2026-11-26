@@ -17,8 +17,9 @@ policy:
 
 from settings_validation_storage_paths import STORAGE_DIR
 
-from advexp.settings import Settings, non_storage_setting
-from advexp.settings.plugins.json_settings import json_setting, json_source
+from advexp.settings import Settings, sourceless_setting
+from advexp.settings.plugins.json_settings import json_source
+from advexp.settings_base.json_setting import json_setting
 
 SAVE_STRICT_JSON_FILE = STORAGE_DIR / "boundaries-save.json"
 
@@ -26,14 +27,14 @@ SAVE_STRICT_JSON_FILE = STORAGE_DIR / "boundaries-save.json"
 class AssignmentPortSettings(Settings):
     """One member in memory: the assignment boundary."""
 
-    port: int = non_storage_setting(default=8080, le=65535)
+    port: int = sourceless_setting(default=8080, le=65535)
 
 
 class UpdateRejectSettings(Settings):
     """Two members in memory: the update boundary with two bad values."""
 
-    port: int = non_storage_setting(default=8080, le=65535)
-    tag: str = non_storage_setting(default="xx", min_length=2)
+    port: int = sourceless_setting(default=8080, le=65535)
+    tag: str = sourceless_setting(default="xx", min_length=2)
 
 
 class SaveStrictSettings(
@@ -49,17 +50,17 @@ class SaveStrictSettings(
 class ValidateListSettings(Settings):
     """The pair in memory: the manual validation over a broken rule."""
 
-    low: int = non_storage_setting(default=1)
-    high: int = non_storage_setting(default=10, ge=low)
+    low: int = sourceless_setting(default=1)
+    high: int = sourceless_setting(default=10, ge=low)
 
 
 class ValidateQuietSettings(Settings):
     """A consistent class with a hook: the manual validation passes
     quietly."""
 
-    value: int = non_storage_setting(default=5, gt=0)
-    lo: int = non_storage_setting(default=1)
-    hi: int = non_storage_setting(default=10, ge=lo)
+    value: int = sourceless_setting(default=5, gt=0)
+    lo: int = sourceless_setting(default=1)
+    hi: int = sourceless_setting(default=10, ge=lo)
 
     def __validate__(self) -> dict:
         return {}

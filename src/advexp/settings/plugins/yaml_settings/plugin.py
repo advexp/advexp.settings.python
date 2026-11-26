@@ -14,18 +14,19 @@ import os
 from typing import Any, Optional, Union
 
 from advexp.settings.plugin_api import (
+    PACKAGE_NAME,
     AttributeSerializerBinding,
     LibraryConfiguration,
     SettingsBasePlugin,
     SourceLink,
 )
 from advexp.settings.plugins.yaml_settings.serializer import YAMLSettingsSerializer
-from advexp.settings.plugins.yaml_settings.setting import YAMLSetting
 from advexp.settings_base.sources import (
     LINK_FILE_PARAM,
     YAML_SOURCE_METADATA,
 )
 from advexp.settings_base.yaml_file import YAML_FILE_METADATA, check_yaml_file
+from advexp.settings_base.yaml_setting import YAMLSetting
 
 
 class YAMLSettingsPlugin(SettingsBasePlugin):
@@ -38,9 +39,15 @@ class YAMLSettingsPlugin(SettingsBasePlugin):
     separate next to it.
     """
 
-    # the declarative binding; the plugin base setup() registers
-    # it at import of this package
-    binding = AttributeSerializerBinding(YAMLSetting, YAMLSettingsSerializer)
+    family = PACKAGE_NAME
+
+    # the module-default spelling of the family reads through this
+    # registration: the family slot keeps the shared member class free
+    # of the other distribution's serializer
+    binding = AttributeSerializerBinding(
+        YAMLSetting,
+        YAMLSettingsSerializer,
+    )
 
     @property
     def plugin_name(self) -> str:
@@ -48,7 +55,7 @@ class YAMLSettingsPlugin(SettingsBasePlugin):
 
     def __source_link(self) -> Optional[SourceLink]:
         """The YAML source seat in the class's chain; ``None`` when unbound."""
-        link: Any = self.context.get_class_metadata(YAML_SOURCE_METADATA)
+        link: Any = self.context.get_class_metadata(YAML_SOURCE_METADATA, default=None)
         return link if isinstance(link, SourceLink) else None
 
     @property
@@ -64,8 +71,8 @@ class YAMLSettingsPlugin(SettingsBasePlugin):
         """
         link = self.__source_link()
         if link is not None:
-            return link.param(LINK_FILE_PARAM)
-        return self.context.get_class_metadata(YAML_FILE_METADATA)
+            return link.param(LINK_FILE_PARAM, default=None)
+        return self.context.get_class_metadata(YAML_FILE_METADATA, default=None)
 
     @file_path.setter
     def file_path(self, value: Union[str, os.PathLike]) -> None:
@@ -80,6 +87,7 @@ class YAMLSettingsPlugin(SettingsBasePlugin):
             YAML_SOURCE_METADATA,
             SourceLink(
                 attribute_class=link.attribute_class,
+                serializer_class=link.serializer_class,
                 params={**link.params, LINK_FILE_PARAM: value},
             ),
         )

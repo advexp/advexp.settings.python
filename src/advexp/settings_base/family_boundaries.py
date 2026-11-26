@@ -59,6 +59,16 @@ def class_family(bases: Iterable[type], class_name: str) -> Optional[str]:
     return None
 
 
+def settings_family(settings_class: type) -> Optional[str]:
+    """The distribution family of an existing settings class.
+
+    This is the lookup for the passes that already hold a class: the same
+    walk over the bases that the ``class`` statement itself takes, answered
+    for the class that exists.
+    """
+    return class_family(settings_class.__bases__, settings_class.__name__)
+
+
 def _article(family: str) -> str:
     """The indefinite article that fits the family's name, for message wording."""
     return "an" if family[:1].lower() in "aeiou" else "a"
